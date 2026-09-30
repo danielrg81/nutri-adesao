@@ -4,6 +4,34 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
+async function fetchUserProfile(userId: string, email?: string) {
+  console.log('Buscando profile para ID:', userId);
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  if (profileError || !profile) {
+    console.error('Erro na busca do profile por ID:', profileError);
+    if (email) {
+      console.log('Tentando fallback de profile por email:', email);
+      const { data: profileByEmail, error: emailError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', email)
+        .single();
+      
+      if (profileByEmail) {
+        return { profile: profileByEmail, error: null };
+      } else {
+        console.error('Erro no fallback por email:', emailError);
+      }
+    }
+  }
+  return { profile, error: profileError };
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -19,11 +47,13 @@ export default function LoginPage() {
     async function checkSessionAndRedirect() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+        if (!session.user.id) {
+          console.error('Session user ID is missing');
+          setLoading(false);
+          return;
+        }
+
+        const { profile } = await fetchUserProfile(session.user.id, session.user.email);
 
         if (profile?.role === 'nutritionist') {
           router.push('/dashboard/nutri');
@@ -76,16 +106,20 @@ export default function LoginPage() {
     }
 
     if (data.user) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
+      if (!data.user.id) {
+        setSubmitting(false);
+        setMessage('Erro: ID do utilizador autenticado não retornado.');
+        return;
+      }
+
+      const { profile, error: profileError } = await fetchUserProfile(data.user.id, data.user.email);
 
       setSubmitting(false);
 
       if (profileError || !profile) {
-        setMessage('Erro ao carregar perfil do utilizador.');
+        const errorMsg = profileError?.message || profileError?.details || 'Perfil não encontrado na tabela profiles.';
+        console.error('Falha definitiva ao carregar perfil:', profileError);
+        setMessage(`Erro ao carregar perfil: ${errorMsg}`);
         return;
       }
 
