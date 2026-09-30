@@ -36,6 +36,25 @@ type MealPlan = {
   };
 };
 
+function formatDoctorName(fullName?: string | null, email?: string | null): string {
+  if (fullName && fullName.trim().length > 0) {
+    const cleanName = fullName.replace(/^(dra?\.?\s*)/i, '').trim();
+    return `Dra. ${cleanName}`;
+  }
+  if (email) {
+    const handle = email.split('@')[0].replace(/[0-9_.-]/g, ' ').trim();
+    const capitalized = handle
+      .split(' ')
+      .filter(Boolean)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+    if (capitalized.length > 0) {
+      return `Dra. ${capitalized}`;
+    }
+  }
+  return 'Dra. Juliana';
+}
+
 const DEFAULT_MEALS: MealItem[] = [
   { id: 'm1', time: '08:00', title: 'Café da Manhã', description: '2 ovos mexidos + 1 fatia de pão integral + Café com leite desnatado' },
   { id: 'm2', time: '12:30', title: 'Almoço', description: '150g de frango grelhado + 4 colheres de arroz integral + Salada à vontade + Azeite' },
@@ -52,7 +71,7 @@ const DEMO_PATIENTS: PatientProfile[] = [
 export default function NutriDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [nutriName, setNutriName] = useState<string>('Dra. Nutricionista');
+  const [nutriName, setNutriName] = useState<string>('Dra. Juliana');
   const [loading, setLoading] = useState(true);
 
   // Navegação lateral (active tab)
@@ -108,11 +127,7 @@ export default function NutriDashboard() {
       }
 
       setUser(session.user);
-      if (profile.full_name) {
-        setNutriName(profile.full_name);
-      } else if (profile.email) {
-        setNutriName(profile.email.split('@')[0]);
-      }
+      setNutriName(formatDoctorName(profile.full_name, profile.email));
 
       // Buscar pacientes na tabela profiles onde role = 'patient'
       const { data: patientData, error: patientError } = await supabase
@@ -349,7 +364,7 @@ export default function NutriDashboard() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-xs">
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-                Bom dia, {nutriName} 👋
+                Olá, {nutriName} 👋
               </h1>
               <p className="text-slate-500 text-sm mt-1">
                 Acompanhe a evolução das suas pacientes e identifique rapidamente quem precisa de atenção.
