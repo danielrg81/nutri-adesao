@@ -41,6 +41,7 @@ type MealPlan = {
   title: string;
   start_date: string;
   end_date: string;
+  notes?: string | null;
   meals_json: MealItem[];
   profiles?: { full_name?: string | null };
 };
@@ -73,6 +74,7 @@ type PlanFormData = {
   title: string;
   startDate: string;
   endDate: string;
+  notes?: string;
   meals: MealItem[];
 };
 
@@ -664,6 +666,7 @@ function CreatePlanModal({ isOpen, onClose, patients, onSubmit, submitting }: {
   const [endDate,   setEndDate]   = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10);
   });
+  const [notes,     setNotes]     = useState('');
   const [meals, setMeals] = useState<MealItem[]>(DEFAULT_MEALS);
 
   const changeMeal = (i: number, f: keyof MealItem, v: string) =>
@@ -676,8 +679,8 @@ function CreatePlanModal({ isOpen, onClose, patients, onSubmit, submitting }: {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId) return;
-    await onSubmit({ patientId, title, startDate, endDate, meals });
-    setPatientId(''); setTitle('Plano de 30 Dias'); setMeals(DEFAULT_MEALS);
+    await onSubmit({ patientId, title, startDate, endDate, notes, meals });
+    setPatientId(''); setTitle('Plano de 30 Dias'); setNotes(''); setMeals(DEFAULT_MEALS);
   };
 
   if (!isOpen) return null;
@@ -754,6 +757,17 @@ function CreatePlanModal({ isOpen, onClose, patients, onSubmit, submitting }: {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Observações / Notas do Plano */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Observações / Orientações do Plano</label>
+            <textarea
+              value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Recomendações gerais, hidratação, suplementação…"
+              rows={2}
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none bg-white"
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
@@ -971,46 +985,53 @@ export default function NutriDashboard() {
 
     setSubmitting(true);
     try {
-      // IMPORTANTE: payload sem cycle_id (coluna não existe no schema)
-      // Apenas os campos definidos na tabela meal_plans
-      const payload = {
+      // 1. Construir payload estrito apenas com colunas válidas e opcionais da tabela meal_plans:
+      // patient_id, nutritionist_id, title, start_date, end_date, notes, meals_json
+      // Evitando estritamente enviar campos vazios/nulos em colunas antigas como cycle_id ou meal_name.
+      const payload: Record<string, any> = {
         patient_id:      data.patientId,
         nutritionist_id: user.id,
-        title:           data.title,
+        title:           data.title || 'Plano de 30 Dias',
         start_date:      data.startDate,
         end_date:        data.endDate,
         meals_json:      data.meals,
-        // cycle_id omitido intencionalmente — causa erro 23502 se enviado como null
       };
 
-      console.log('📤 [createPlan] payload:', { ...payload, meals_json: `${payload.meals_json.length} refeições` });
+      if (data.notes && data.notes.trim().length > 0) {
+        payload.notes = data.notes.trim();
+      }
+
+      // 3. console.log detalhado do payload antes do envio para depuração
+      console.log('📋 [createPlan] Payload estrito a enviar para meal_plans:', JSON.stringify(payload, null, 2));
 
       const { data: inserted, error } = await supabase
-        .from('meal_plans').insert(payload).select();
+        .from('meal_plans')
+        .insert(payload)
+        .select();
 
       if (error) {
         let msg: string;
         switch (error.code) {
-          case '23503': msg = `Chave estrangeira inválida: a paciente (ID ${data.patientId}) não existe ou não tem role="patient". Verifique o cadastro.`; break;
-          case '23502': msg = `Campo obrigatório sem valor: ${error.message}. Verifique se o payload tem todos os campos NOT NULL.`; break;
+          case '23503': msg = `Chave estrangeira inválida: a paciente (ID ${data.patientId}) não existe ou não tem role="patient".`; break;
+          case '23502': msg = `Coluna obrigatória em falta: ${error.message}.`; break;
           case '23505': msg = 'Já existe um plano com este título para esta paciente neste período.'; break;
           case '42501': msg = 'Permissão negada pela RLS. Confirme que está autenticado como nutricionista.'; break;
           case '42703': msg = `Coluna inexistente: ${error.message}`; break;
           default:      msg = `Erro ao gravar plano (${error.code ?? 'N/A'}): ${error.message}`;
         }
-        console.error('❌ [createPlan]', error);
+        console.error('❌ [createPlan] Erro Supabase:', error);
         addToast(msg, 'error');
         return;
       }
 
-      console.log('✅ [createPlan] sucesso:', inserted);
+      console.log('✅ [createPlan] Sucesso:', inserted);
       addToast('✨ Plano alimentar gravado com sucesso!', 'success');
       setPlanModalOpen(false);
 
       // Recarregar planos
       const { data: refreshed } = await supabase
         .from('meal_plans')
-        .select('id, patient_id, nutritionist_id, title, start_date, end_date, meals_json, profiles:patient_id(full_name)')
+        .select('id, patient_id, nutritionist_id, title, start_date, end_date, notes, meals_json, profiles:patient_id(full_name)')
         .eq('nutritionist_id', user.id)
         .order('created_at', { ascending: false });
       if (refreshed) setRecentPlans(refreshed as unknown as MealPlan[]);
