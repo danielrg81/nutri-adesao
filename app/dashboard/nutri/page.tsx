@@ -373,7 +373,23 @@ function PatientsView({ patients, onNewPatient }: {
 // VIEW: PLANOS ALIMENTARES
 // ============================================================================
 
-function MealPlansView({ plans, onCreatePlan }: { plans: MealPlan[]; onCreatePlan: () => void }) {
+function MealPlansView({
+  plans,
+  patients,
+  selectedPatientId,
+  onSelectPatient,
+  onCreatePlan
+}: {
+  plans: MealPlan[];
+  patients: PatientProfile[];
+  selectedPatientId: string;
+  onSelectPatient: (id: string) => void;
+  onCreatePlan: () => void;
+}) {
+  const filteredPlans = selectedPatientId
+    ? plans.filter(p => p.patient_id === selectedPatientId)
+    : plans;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-xs">
@@ -381,21 +397,33 @@ function MealPlansView({ plans, onCreatePlan }: { plans: MealPlan[]; onCreatePla
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Planos Alimentares 📋</h1>
           <p className="text-slate-500 text-sm mt-1">Gestão e histórico de planos criados para as suas pacientes.</p>
         </div>
-        <button onClick={onCreatePlan}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition shadow-xs self-start md:self-auto">
-          + Criar Novo Plano
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={selectedPatientId}
+            onChange={e => onSelectPatient(e.target.value)}
+            className="border border-slate-200 rounded-xl px-4 py-2.5 text-xs bg-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="">Todas as Pacientes</option>
+            {patients.map(p => (
+              <option key={p.id} value={p.id}>{p.full_name ?? p.email ?? p.id}</option>
+            ))}
+          </select>
+          <button onClick={onCreatePlan}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition shadow-xs">
+            + Criar Novo Plano
+          </button>
+        </div>
       </div>
 
-      {plans.length === 0 ? (
+      {filteredPlans.length === 0 ? (
         <div className="bg-white border border-dashed border-slate-200 rounded-3xl p-12 text-center space-y-3">
           <div className="text-4xl">📂</div>
-          <h3 className="text-base font-bold text-slate-900">Nenhum plano cadastrado</h3>
-          <p className="text-xs text-slate-500">Clique em &ldquo;+ Criar Novo Plano&rdquo; acima.</p>
+          <h3 className="text-base font-bold text-slate-900">Nenhum plano encontrado</h3>
+          <p className="text-xs text-slate-500">Não existem planos para o filtro selecionado ou clique em &ldquo;+ Criar Novo Plano&rdquo;.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {plans.map(plan => (
+          {filteredPlans.map(plan => (
             <div key={plan.id} className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs flex flex-col gap-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -406,6 +434,11 @@ function MealPlansView({ plans, onCreatePlan }: { plans: MealPlan[]; onCreatePla
                 </div>
                 <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{plan.profiles?.full_name ?? '—'}</span></p>
                 <p className="text-xs text-slate-400 mt-1">{plan.start_date} até {plan.end_date}</p>
+                {plan.notes && (
+                  <p className="text-xs text-slate-600 mt-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <strong>Notas:</strong> {plan.notes}
+                  </p>
+                )}
               </div>
               {Array.isArray(plan.meals_json) && plan.meals_json.length > 0 && (
                 <div className="border-t border-slate-100 pt-3 space-y-1.5">
@@ -806,8 +839,46 @@ export default function NutriDashboard() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // ── dados ──────────────────────────────────────────────────────────────────
-  const [patients,    setPatients]    = useState<PatientProfile[]>([]);
-  const [recentPlans, setRecentPlans] = useState<MealPlan[]>([]);
+  const [patients,              setPatients]              = useState<PatientProfile[]>([]);
+  const [recentPlans,           setRecentPlans]           = useState<MealPlan[]>([]);
+  const [selectedPlanPatientId, setSelectedPlanPatientId] = useState('');
+
+  // ── fetchMealPlans helper ──────────────────────────────────────────────────
+  const fetchMealPlans = useCallback(async (nutriId: string, filterPatientId?: string) => {
+    try {
+      console.log('📋 [fetchMealPlans] A buscar planos alimentares para nutritionist_id:', nutriId, filterPatientId ? `(filtro patient_id: ${filterPatientId})` : '(todos)');
+      let query = supabase
+        .from('meal_plans')
+        .select('id, patient_id, nutritionist_id, title, start_date, end_date, notes, meals_json, profiles:patient_id(full_name)')
+        .eq('nutritionist_id', nutriId);
+
+      if (filterPatientId && filterPatientId.trim().length > 0) {
+        query = query.eq('patient_id', filterPatientId);
+      }
+
+      const { data: plans, error: plansErr } = await query.order('created_at', { ascending: false });
+
+      if (plansErr) {
+        console.error('❌ [fetchMealPlans] Erro ao buscar meal_plans com join:', plansErr);
+        let fallbackQuery = supabase
+          .from('meal_plans')
+          .select('*')
+          .eq('nutritionist_id', nutriId);
+        if (filterPatientId && filterPatientId.trim().length > 0) {
+          fallbackQuery = fallbackQuery.eq('patient_id', filterPatientId);
+        }
+        const { data: basicPlans } = await fallbackQuery.order('created_at', { ascending: false });
+        if (basicPlans) {
+          setRecentPlans(basicPlans as unknown as MealPlan[]);
+        }
+      } else if (plans) {
+        console.log(`✅ [fetchMealPlans] Encontrados ${plans.length} planos alimentares.`);
+        setRecentPlans(plans as unknown as MealPlan[]);
+      }
+    } catch (err) {
+      console.error('❌ [fetchMealPlans] Exceção:', err);
+    }
+  }, []);
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   const [mobileOpen,       setMobileOpen]       = useState(false);
@@ -903,16 +974,8 @@ export default function NutriDashboard() {
 
         if (alive) setPatients(patientRows);
 
-        // Planos — payload limpo, sem cycle_id
-        const { data: plans, error: plansErr } = await supabase
-          .from('meal_plans')
-          .select('id, patient_id, nutritionist_id, title, start_date, end_date, meals_json, profiles:patient_id(full_name)')
-          .eq('nutritionist_id', u.id)
-          .order('created_at', { ascending: false });
-
-        if (alive && !plansErr && plans) {
-          setRecentPlans(plans as unknown as MealPlan[]);
-        }
+        // Planos alimentares
+        await fetchMealPlans(u.id);
       } catch (err) {
         if (alive) setAuthError(`Erro inesperado: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
@@ -1028,13 +1091,8 @@ export default function NutriDashboard() {
       addToast('✨ Plano alimentar gravado com sucesso!', 'success');
       setPlanModalOpen(false);
 
-      // Recarregar planos
-      const { data: refreshed } = await supabase
-        .from('meal_plans')
-        .select('id, patient_id, nutritionist_id, title, start_date, end_date, notes, meals_json, profiles:patient_id(full_name)')
-        .eq('nutritionist_id', user.id)
-        .order('created_at', { ascending: false });
-      if (refreshed) setRecentPlans(refreshed as unknown as MealPlan[]);
+      // Chamar função de busca/listagem imediatamente para atualizar o estado local da tela
+      await fetchMealPlans(user.id, selectedPlanPatientId);
 
     } catch (err) {
       addToast(`Excepção: ${err instanceof Error ? err.message : String(err)}`, 'error');
@@ -1250,7 +1308,13 @@ export default function NutriDashboard() {
               <PatientsView patients={patients} onNewPatient={() => setPatientModalOpen(true)} />
             )}
             {activeView === 'meal-plans' && (
-              <MealPlansView plans={recentPlans} onCreatePlan={() => setPlanModalOpen(true)} />
+              <MealPlansView
+                plans={recentPlans}
+                patients={patients}
+                selectedPatientId={selectedPlanPatientId}
+                onSelectPatient={setSelectedPlanPatientId}
+                onCreatePlan={() => setPlanModalOpen(true)}
+              />
             )}
             {activeView === 'reports'  && <ReportsView />}
             {activeView === 'settings' && (
