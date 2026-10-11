@@ -844,35 +844,25 @@ export default function NutriDashboard() {
   const [selectedPlanPatientId, setSelectedPlanPatientId] = useState('');
 
   // ── fetchMealPlans helper ──────────────────────────────────────────────────
-  const fetchMealPlans = useCallback(async (nutriId: string, filterPatientId?: string) => {
+  const fetchMealPlans = useCallback(async () => {
     try {
-      console.log('📋 [fetchMealPlans] A buscar planos alimentares para nutritionist_id:', nutriId, filterPatientId ? `(filtro patient_id: ${filterPatientId})` : '(todos)');
-      let query = supabase
+      console.log('📋 [fetchMealPlans] A buscar todos os planos alimentares (sem filtros restritivos)...');
+      const { data: plans, error: plansErr } = await supabase
         .from('meal_plans')
-        .select('id, patient_id, nutritionist_id, title, start_date, end_date, notes, meals_json, profiles:patient_id(full_name)')
-        .eq('nutritionist_id', nutriId);
-
-      if (filterPatientId && filterPatientId.trim().length > 0) {
-        query = query.eq('patient_id', filterPatientId);
-      }
-
-      const { data: plans, error: plansErr } = await query.order('created_at', { ascending: false });
+        .select('id, title, created_at, start_date, end_date, notes, meals_json, patient_id, nutritionist_id, profiles:patient_id(full_name)')
+        .order('created_at', { ascending: false });
 
       if (plansErr) {
-        console.error('❌ [fetchMealPlans] Erro ao buscar meal_plans com join:', plansErr);
-        let fallbackQuery = supabase
+        console.error('❌ [fetchMealPlans] Erro ao buscar meal_plans:', plansErr);
+        const { data: basicPlans } = await supabase
           .from('meal_plans')
-          .select('*')
-          .eq('nutritionist_id', nutriId);
-        if (filterPatientId && filterPatientId.trim().length > 0) {
-          fallbackQuery = fallbackQuery.eq('patient_id', filterPatientId);
-        }
-        const { data: basicPlans } = await fallbackQuery.order('created_at', { ascending: false });
+          .select('id, title, created_at, start_date, end_date, notes, meals_json, patient_id, nutritionist_id')
+          .order('created_at', { ascending: false });
         if (basicPlans) {
           setRecentPlans(basicPlans as unknown as MealPlan[]);
         }
       } else if (plans) {
-        console.log(`✅ [fetchMealPlans] Encontrados ${plans.length} planos alimentares.`);
+        console.log(`✅ [fetchMealPlans] Encontrados ${plans.length} planos alimentares (todos).`);
         setRecentPlans(plans as unknown as MealPlan[]);
       }
     } catch (err) {
@@ -974,8 +964,8 @@ export default function NutriDashboard() {
 
         if (alive) setPatients(patientRows);
 
-        // Planos alimentares
-        await fetchMealPlans(u.id);
+        // Planos alimentares (sem filtros restritivos)
+        await fetchMealPlans();
       } catch (err) {
         if (alive) setAuthError(`Erro inesperado: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
@@ -1092,7 +1082,7 @@ export default function NutriDashboard() {
       setPlanModalOpen(false);
 
       // Chamar função de busca/listagem imediatamente para atualizar o estado local da tela
-      await fetchMealPlans(user.id, selectedPlanPatientId);
+      await fetchMealPlans();
 
     } catch (err) {
       addToast(`Excepção: ${err instanceof Error ? err.message : String(err)}`, 'error');
