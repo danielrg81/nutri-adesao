@@ -56,15 +56,10 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
   }, []);
 
   const toggleTheme = () => {
-    const nextDark = !isDarkMode;
-    setIsDarkMode(nextDark);
-    if (nextDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
+    document.documentElement.classList.toggle('dark');
+    const isNowDark = document.documentElement.classList.contains('dark');
+    setIsDarkMode(isNowDark);
+    localStorage.setItem('theme', isNowDark ? 'dark' : 'light');
   };
 
   useEffect(() => {
