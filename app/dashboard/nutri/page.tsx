@@ -43,7 +43,9 @@ type MealPlan = {
   end_date: string;
   notes?: string | null;
   meals_json: MealItem[];
+  // Suporte para both patients e profiles tables
   profiles?: { full_name?: string | null };
+  patients?: { full_name?: string | null };
 };
 
 type ViewType =
@@ -106,6 +108,11 @@ function formatDoctorName(fullName?: string | null, email?: string | null): stri
     if (handle) return `Dra. ${handle}`;
   }
   return 'Dra. Juliana';
+}
+
+// Helper para obter nome da paciente de qualquer estrutura (patients ou profiles)
+function getPatientName(plan: MealPlan): string {
+  return plan.patients?.full_name || plan.profiles?.full_name || '—';
 }
 
 const DEFAULT_MEALS: MealItem[] = [
@@ -260,7 +267,7 @@ function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreateP
                     {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{plan.profiles?.full_name ?? '—'}</span></p>
+                <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{getPatientName(plan)}</span></p>
                 <p className="text-xs text-slate-400 mt-1">{plan.start_date} até {plan.end_date}</p>
               </div>
             ))}
@@ -442,7 +449,7 @@ function MealPlansView({
                     {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{plan.profiles?.full_name ?? '—'}</span></p>
+                <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{getPatientName(plan)}</span></p>
                 <p className="text-xs text-slate-400 mt-1">{plan.start_date} até {plan.end_date}</p>
                 {plan.notes && (
                   <p className="text-xs text-slate-600 mt-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
@@ -986,25 +993,65 @@ export default function NutriDashboard() {
   const fetchMealPlans = useCallback(async () => {
     try {
       console.log('📋 [fetchMealPlans] A buscar todos os planos alimentares (sem filtros restritivos)...');
+      
+      // Primeiro, tentar buscar com JOIN na tabela patients (correta)
       const { data: plans, error: plansErr } = await supabase
         .from('meal_plans')
-        .select('id, title, created_at, start_date, end_date, notes, meals_json, patient_id, nutritionist_id, profiles:patient_id(full_name)')
+        .select(`
+          id, 
+          title, 
+          created_at, 
+          start_date, 
+          end_date, 
+          notes, 
+          meals_json, 
+          patient_id, 
+          nutritionist_id,
+          patients:patient_id(full_name)
+        `)
         .order('created_at', { ascending: false });
 
       // CONSOLE LOG SOLICITADO para inspecionar a resposta
       console.log('Planos buscados:', plans, plansErr);
 
       if (plansErr) {
-        console.error('❌ [fetchMealPlans] Erro ao buscar meal_plans:', plansErr);
-        const { data: basicPlans } = await supabase
+        console.error('❌ [fetchMealPlans] Erro ao buscar meal_plans com JOIN patients:', plansErr);
+        
+        // Fallback: tentar com JOIN na tabela profiles (schema antigo)
+        console.log('🔄 [fetchMealPlans] Tentando fallback com tabela profiles...');
+        const { data: plansProfiles, error: profilesErr } = await supabase
           .from('meal_plans')
-          .select('id, title, created_at, start_date, end_date, notes, meals_json, patient_id, nutritionist_id')
+          .select(`
+            id, 
+            title, 
+            created_at, 
+            start_date, 
+            end_date, 
+            notes, 
+            meals_json, 
+            patient_id, 
+            nutritionist_id,
+            profiles:patient_id(full_name)
+          `)
           .order('created_at', { ascending: false });
-        if (basicPlans) {
-          setRecentPlans(basicPlans as unknown as MealPlan[]);
+
+        if (profilesErr) {
+          console.error('❌ [fetchMealPlans] Erro também com profiles, buscando sem JOIN:', profilesErr);
+          // Último fallback: buscar sem JOIN
+          const { data: basicPlans } = await supabase
+            .from('meal_plans')
+            .select('id, title, created_at, start_date, end_date, notes, meals_json, patient_id, nutritionist_id')
+            .order('created_at', { ascending: false });
+          
+          if (basicPlans) {
+            setRecentPlans(basicPlans as unknown as MealPlan[]);
+          }
+        } else if (plansProfiles) {
+          console.log(`✅ [fetchMealPlans] Encontrados ${plansProfiles.length} planos via profiles.`);
+          setRecentPlans(plansProfiles as unknown as MealPlan[]);
         }
       } else if (plans) {
-        console.log(`✅ [fetchMealPlans] Encontrados ${plans.length} planos alimentares (todos).`);
+        console.log(`✅ [fetchMealPlans] Encontrados ${plans.length} planos via patients.`);
         setRecentPlans(plans as unknown as MealPlan[]);
       }
     } catch (err) {
@@ -1319,7 +1366,23 @@ export default function NutriDashboard() {
       if (error) {
         let msg: string;
         switch (error.code) {
-          case '23503': msg = `Chave estrangeira inválida: a paciente (ID ${data.patientId}) não existe ou não tem role="patient".`; break;
+          case '23503': 
+            // Erro de chave estrangeira - tentar diagnóstico
+            console.error('🔍 [createPlan] Diagnosticando FK error - patient_id:', data.patientId);
+            
+            // Verificar se o patient existe na tabela patients
+            const { data: patientCheck } = await supabase
+              .from('patients')
+              .select('id, full_name')
+              .eq('id', data.patientId)
+              .single();
+            
+            if (patientCheck) {
+              msg = `Erro de chave estrangeira: patient_id ${data.patientId} existe na tabela patients mas meal_plans pode estar referenciando profiles. Verifique o schema do banco.`;
+            } else {
+              msg = `Chave estrangeira inválida: a paciente (ID ${data.patientId}) não existe.`;
+            }
+            break;
           case '23502': msg = `Coluna obrigatória em falta: ${error.message}.`; break;
           case '23505': msg = 'Já existe um plano com este título para esta paciente neste período.'; break;
           case '42501': msg = 'Permissão negada pela RLS. Confirme que está autenticado como nutricionista.'; break;
@@ -1327,17 +1390,20 @@ export default function NutriDashboard() {
           default:      msg = `Erro ao gravar plano (${error.code ?? 'N/A'}): ${error.message}`;
         }
         console.error('❌ [createPlan] Erro Supabase:', error);
+        console.error('❌ [createPlan] Payload que falhou:', JSON.stringify(payload, null, 2));
         addToast(msg, 'error');
         return;
       }
 
       console.log('✅ [createPlan] Sucesso:', inserted);
+      console.log('🔄 [createPlan] Iniciando recarregamento da lista de planos...');
       addToast('✨ Plano alimentar gravado com sucesso!', 'success');
       setPlanModalOpen(false);
 
       // Chamar função de busca/listagem imediatamente para atualizar o estado local da tela
       // Recarregar tanto na montagem do componente quanto quando um novo plano for salvo
       await fetchMealPlans();
+      console.log('✅ [createPlan] Recarregamento da lista concluído');
 
     } catch (err) {
       addToast(`Excepção: ${err instanceof Error ? err.message : String(err)}`, 'error');
