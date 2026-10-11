@@ -172,12 +172,13 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 // VIEW: DASHBOARD
 // ============================================================================
 
-function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreatePlan }: {
+function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreatePlan, onDeletePlan }: {
   nutriName: string;
   patients: PatientProfile[];
   recentPlans: MealPlan[];
   onNavigate: (v: ViewType) => void;
   onCreatePlan: () => void;
+  onDeletePlan: (planId: string, planTitle: string) => void;
 }) {
   const total        = patients.length;
   const avgAdherence = total > 0 ? Math.round(patients.reduce((s, p) => s + (p.adherence ?? 75), 0) / total) : 0;
@@ -263,9 +264,18 @@ function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreateP
               <div key={plan.id} className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-slate-900 text-base">{plan.title}</h3>
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 text-teal-800 border border-teal-200">
-                    {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 text-teal-800 border border-teal-200">
+                      {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
+                    </span>
+                    <button
+                      onClick={() => onDeletePlan(plan.id, plan.title)}
+                      className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition flex items-center justify-center text-sm"
+                      title="Excluir plano"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{getPatientName(plan)}</span></p>
                 <p className="text-xs text-slate-400 mt-1">{plan.start_date} até {plan.end_date}</p>
@@ -395,13 +405,15 @@ function MealPlansView({
   patients,
   selectedPatientId,
   onSelectPatient,
-  onCreatePlan
+  onCreatePlan,
+  onDeletePlan
 }: {
   plans: MealPlan[];
   patients: PatientProfile[];
   selectedPatientId: string;
   onSelectPatient: (id: string) => void;
   onCreatePlan: () => void;
+  onDeletePlan: (planId: string, planTitle: string) => void;
 }) {
   const filteredPlans = selectedPatientId
     ? plans.filter(p => p.patient_id === selectedPatientId)
@@ -445,9 +457,18 @@ function MealPlansView({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-slate-900 text-lg">{plan.title}</h3>
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 text-teal-800 border border-teal-200">
-                    {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 text-teal-800 border border-teal-200">
+                      {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
+                    </span>
+                    <button
+                      onClick={() => onDeletePlan(plan.id, plan.title)}
+                      className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition flex items-center justify-center text-sm"
+                      title="Excluir plano"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{getPatientName(plan)}</span></p>
                 <p className="text-xs text-slate-400 mt-1">{plan.start_date} até {plan.end_date}</p>
@@ -1333,6 +1354,38 @@ export default function NutriDashboard() {
     }
   };
 
+  // ── deletar plano ──────────────────────────────────────────────────────────
+  const handleDeletePlan = async (planId: string, planTitle: string) => {
+    const confirmed = window.confirm(`Tem certeza que deseja excluir o plano "${planTitle}"?\n\nEsta ação não pode ser desfeita.`);
+    
+    if (!confirmed) return;
+
+    try {
+      console.log('🗑️ [deletePlan] Excluindo plano:', planId);
+
+      const { error } = await supabase
+        .from('meal_plans')
+        .delete()
+        .eq('id', planId);
+
+      if (error) {
+        console.error('❌ [deletePlan] Erro ao excluir plano:', error);
+        addToast(`Erro ao excluir plano: ${error.message}`, 'error');
+        return;
+      }
+
+      console.log('✅ [deletePlan] Plano excluído com sucesso:', planId);
+      addToast('🗑️ Plano alimentar excluído com sucesso!', 'success');
+
+      // Atualizar estado local removendo o plano da lista
+      setRecentPlans(prev => prev.filter(plan => plan.id !== planId));
+
+    } catch (err) {
+      console.error('❌ [deletePlan] Exceção:', err);
+      addToast(`Exceção ao excluir plano: ${err instanceof Error ? err.message : String(err)}`, 'error');
+    }
+  };
+
   // ── gravar plano ───────────────────────────────────────────────────────────
   const handleCreatePlan = async (data: PlanFormData) => {
     if (!user) { addToast('Utilizador não autenticado.', 'error'); return; }
@@ -1506,13 +1559,13 @@ export default function NutriDashboard() {
       <div className="min-h-screen bg-[#F7F9FA] text-slate-800 flex flex-col md:flex-row font-sans">
 
         {/* Mobile header */}
-        <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+        <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🥗</span>
-            <span className="font-extrabold text-sm text-emerald-950">NutriAdesão</span>
+            <span className="font-extrabold text-sm text-emerald-950 dark:text-emerald-100">NutriAdesão</span>
           </div>
           <button onClick={() => setMobileOpen(v => !v)}
-            className="p-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition" aria-label="Menu">
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" aria-label="Menu">
             {mobileOpen ? '✕' : '☰'}
           </button>
         </div>
@@ -1556,13 +1609,13 @@ export default function NutriDashboard() {
         )}
 
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col justify-between shrink-0 min-h-screen sticky top-0 z-30 shadow-sm">
+        <aside className="hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex-col justify-between shrink-0 min-h-screen sticky top-0 z-30 shadow-sm">
           <div>
-            <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
               <span className="text-3xl">🥗</span>
               <div>
-                <span className="font-extrabold text-base text-emerald-950 tracking-tight block">NutriAdesão</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Painel Clínico</span>
+                <span className="font-extrabold text-base text-emerald-950 dark:text-emerald-100 tracking-tight block">NutriAdesão</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md">Painel Clínico</span>
               </div>
             </div>
             <nav className="p-4 space-y-1.5">
@@ -1570,20 +1623,22 @@ export default function NutriDashboard() {
                 const active = normalizeView(item.view) === activeView;
                 return (
                   <button key={item.view} onClick={() => setCurrentView(item.view)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${active ? 'bg-emerald-50 text-emerald-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${active ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}`}>
                     <span>{item.icon}</span>{item.label}
                   </button>
                 );
               })}
             </nav>
           </div>
-          <div className="p-4 border-t border-slate-100">
-            <p className="text-xs font-bold text-slate-800 truncate">{nutriName}</p>
-            <p className="text-[11px] text-slate-500 truncate mb-3">{user?.email}</p>
-            <button onClick={handleLogout}
-              className="w-full bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 border border-slate-200 text-xs font-semibold py-2 rounded-xl transition flex items-center justify-center gap-2">
-              🚪 Sair da conta
-            </button>
+          <div className="p-4 border-t border-slate-100 dark:border-slate-700">
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{nutriName}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mb-3">{user?.email}</p>
+            <div className="flex items-center gap-2">
+              <button onClick={handleLogout}
+                className="flex-1 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-700 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 text-xs font-semibold py-2 rounded-xl transition flex items-center justify-center gap-2">
+                🚪 Sair da conta
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -1613,6 +1668,7 @@ export default function NutriDashboard() {
               <DashboardView
                 nutriName={nutriName} patients={patients} recentPlans={recentPlans}
                 onNavigate={setCurrentView} onCreatePlan={() => setPlanModalOpen(true)}
+                onDeletePlan={handleDeletePlan}
               />
             )}
             {activeView === 'patients' && (
@@ -1625,6 +1681,7 @@ export default function NutriDashboard() {
                 selectedPatientId={selectedPlanPatientId}
                 onSelectPatient={setSelectedPlanPatientId}
                 onCreatePlan={() => setPlanModalOpen(true)}
+                onDeletePlan={handleDeletePlan}
               />
             )}
             {activeView === 'reports'  && <ReportsView />}

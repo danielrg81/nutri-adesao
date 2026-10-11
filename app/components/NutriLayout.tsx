@@ -39,6 +39,33 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
   const [nutriName, setNutriName] = useState<string>(propNutriName || 'Dra. Juliana');
   const [loading, setLoading] = useState(!propUser);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Sincronizar tema do localStorage / classe html
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+    
+    setIsDarkMode(shouldBeDark);
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextDark = !isDarkMode;
+    setIsDarkMode(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   useEffect(() => {
     if (propUser) {
@@ -123,58 +150,65 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
     { label: 'Configurações', href: '/dashboard/configuracoes', icon: '⚙️' },
   ];
   
-  // Função para verificar se um item de navegação está ativo
   const isNavItemActive = (href: string) => {
-    // Para Dashboard, só ativa se for exatamente /dashboard/nutri
     if (href === '/dashboard/nutri') {
       return pathname === '/dashboard/nutri';
     }
-    // Para outros itens, verifica se o pathname começa com o href
     return pathname === href || pathname?.startsWith(href + '/');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F9FA] flex items-center justify-center text-slate-500 font-medium">
+      <div className="min-h-screen bg-[#F7F9FA] dark:bg-slate-950 flex items-center justify-center text-slate-500 dark:text-slate-400 font-medium">
         Carregando painel profissional...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F9FA] text-slate-800 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen bg-[#F7F9FA] dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col md:flex-row font-sans">
       
       {/* Mobile Header */}
-      <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-2xs">
+      <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-xs">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/dashboard/nutri')}>
           <span className="text-2xl">🥗</span>
-          <span className="font-extrabold text-sm text-emerald-950">NutriAdesão</span>
+          <span className="font-extrabold text-sm text-emerald-950 dark:text-emerald-300">NutriAdesão</span>
         </div>
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition focus:outline-none"
-          aria-label="Abrir Menu"
-        >
-          {mobileMenuOpen ? '✕' : '☰'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-yellow-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+            aria-label="Alternar Tema"
+            title="Alternar Tema"
+          >
+            {isDarkMode ? '☀️' : '🌙'}
+          </button>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition focus:outline-none"
+            aria-label="Abrir Menu"
+          >
+            {mobileMenuOpen ? '✕' : '☰'}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex md:hidden">
-          <div className="w-72 bg-white h-full shadow-2xl flex flex-col justify-between p-6 animate-slide-right">
+          <div className="w-72 bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col justify-between p-6 animate-slide-right">
             <div>
-              <div className="flex items-center justify-between pb-6 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">🥗</span>
                   <div>
-                    <span className="font-extrabold text-sm text-emerald-950 block">NutriAdesão</span>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Painel Clínico</span>
+                    <span className="font-extrabold text-sm text-emerald-950 dark:text-emerald-300 block">NutriAdesão</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md">Painel Clínico</span>
                   </div>
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 font-bold text-lg p-1"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold text-lg p-1"
                 >
                   ✕
                 </button>
@@ -187,7 +221,7 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
                     <button
                       key={item.href}
                       onClick={() => { setMobileMenuOpen(false); router.push(item.href); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${isActive ? 'bg-emerald-50 text-emerald-900 shadow-2xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${isActive ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                       <span>{item.icon}</span> {item.label}
                     </button>
@@ -196,14 +230,14 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
               </nav>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 bg-slate-50/50 -mx-6 -mb-6 p-6">
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 -mx-6 -mb-6 p-6">
               <div className="mb-3 truncate">
-                <span className="font-bold text-xs text-slate-800 block truncate">{nutriName}</span>
-                <span className="text-[11px] text-slate-500 block truncate">{user?.email}</span>
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block truncate">{nutriName}</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">{user?.email}</span>
               </div>
               <button
                 onClick={handleLogout}
-                className="w-full bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 border border-slate-200 text-xs font-semibold py-2.5 px-3 rounded-xl transition shadow-2xs flex items-center justify-center gap-2"
+                className="w-full bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-700 dark:hover:text-rose-300 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold py-2.5 px-3 rounded-xl transition shadow-2xs flex items-center justify-center gap-2"
               >
                 🚪 Sair da conta
               </button>
@@ -214,13 +248,15 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
       )}
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col justify-between shrink-0 min-h-screen sticky top-0 z-30 shadow-2xs">
+      <aside className="hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col justify-between shrink-0 min-h-screen sticky top-0 z-30 shadow-2xs">
         <div>
-          <div className="p-6 border-b border-slate-100 flex items-center gap-3 cursor-pointer" onClick={() => router.push('/dashboard/nutri')}>
-            <span className="text-3xl">🥗</span>
-            <div>
-              <span className="font-extrabold text-base text-emerald-950 tracking-tight block">NutriAdesão</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Painel Clínico</span>
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between cursor-pointer" onClick={() => router.push('/dashboard/nutri')}>
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🥗</span>
+              <div>
+                <span className="font-extrabold text-base text-emerald-950 dark:text-emerald-300 tracking-tight block">NutriAdesão</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md">Painel Clínico</span>
+              </div>
             </div>
           </div>
 
@@ -231,7 +267,7 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
                 <button
                   key={item.href}
                   onClick={() => router.push(item.href)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${isActive ? 'bg-emerald-50 text-emerald-900 shadow-2xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${isActive ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                 >
                   <span>{item.icon}</span> {item.label}
                 </button>
@@ -240,16 +276,26 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-          <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
+          <div className="flex items-center justify-between gap-2">
             <div className="truncate">
-              <span className="font-bold text-xs text-slate-800 block truncate">{nutriName}</span>
-              <span className="text-[11px] text-slate-500 block truncate">{user?.email}</span>
+              <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block truncate">{nutriName}</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">{user?.email}</span>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="flex-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-yellow-400 border border-slate-200 dark:border-slate-700 text-xs font-semibold py-2 px-3 rounded-xl transition shadow-2xs flex items-center justify-center gap-2"
+              title="Alternar Tema Claro/Escuro"
+            >
+              <span>{isDarkMode ? '☀️' : '🌙'}</span>
+              <span>{isDarkMode ? 'Modo Claro' : 'Modo Escuro'}</span>
+            </button>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 border border-slate-200 text-xs font-semibold py-2 px-3 rounded-xl transition shadow-2xs flex items-center justify-center gap-2"
+            className="w-full bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-700 dark:hover:text-rose-300 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold py-2 px-3 rounded-xl transition shadow-2xs flex items-center justify-center gap-2"
           >
             🚪 Sair da conta
           </button>
@@ -258,11 +304,13 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-6 py-4 hidden md:flex items-center justify-between sticky top-0 z-20 shadow-2xs">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 hidden md:flex items-center justify-between sticky top-0 z-20 shadow-xs">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-slate-800">{title}</h2>
+            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{title}</h2>
           </div>
-          {actions && <div className="flex items-center gap-3">{actions}</div>}
+          <div className="flex items-center gap-3">
+            {actions}
+          </div>
         </header>
 
         <div className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-8">
