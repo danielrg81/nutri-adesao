@@ -2,6 +2,7 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -42,7 +43,6 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    // Sincronizar tema do localStorage / classe html
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
@@ -71,12 +71,8 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
     }
 
     let isMounted = true;
-
     const safetyTimer = setTimeout(() => {
-      if (isMounted && loading) {
-        console.warn('⚠️ [NutriLayout] Timeout de segurança de carregamento (3.5s) acionado.');
-        setLoading(false);
-      }
+      if (isMounted && loading) setLoading(false);
     }, 3500);
 
     async function checkAuth() {
@@ -94,19 +90,7 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
           .single();
 
         if (!isMounted) return;
-
-        if (error || !profile) {
-          console.error('❌ [NutriLayout] Erro ao carregar perfil:', error);
-          router.push('/login');
-          return;
-        }
-
-        if (profile.role === 'patient') {
-          router.push('/dashboard/patient');
-          return;
-        }
-
-        if (profile.role !== 'nutritionist') {
+        if (error || !profile || profile.role !== 'nutritionist') {
           router.push('/login');
           return;
         }
@@ -114,7 +98,6 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
         setUser(session.user);
         setNutriName(formatDoctorName(profile.full_name, session.user.email));
       } catch (err) {
-        console.error('❌ [NutriLayout] Exceção em checkAuth:', err);
         router.push('/login');
       } finally {
         if (isMounted) {
@@ -125,7 +108,6 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
     }
 
     checkAuth();
-
     return () => {
       isMounted = false;
       clearTimeout(safetyTimer);
@@ -138,23 +120,21 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
   };
 
   const navItems = [
-    { label: 'Dashboard', href: '/dashboard/nutri', icon: '📊' },
+    { label: 'Dashboard', href: '/dashboard/nutri', icon: '📊', badge: 'Página inicial' },
     { label: 'Pacientes', href: '/dashboard/pacientes', icon: '👥' },
     { label: 'Planos Alimentares', href: '/dashboard/planos', icon: '📋' },
-    { label: 'Relatórios', href: '/dashboard/relatorios', icon: '📈' },
+    { label: 'Consultas', href: '/dashboard/relatorios', icon: '📅' },
     { label: 'Configurações', href: '/dashboard/configuracoes', icon: '⚙️' },
   ];
-  
+
   const isNavItemActive = (href: string) => {
-    if (href === '/dashboard/nutri') {
-      return pathname === '/dashboard/nutri';
-    }
+    if (href === '/dashboard/nutri') return pathname === '/dashboard/nutri';
     return pathname === href || pathname?.startsWith(href + '/');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F9FA] dark:bg-slate-950 flex items-center justify-center text-slate-500 dark:text-slate-400 font-medium">
+      <div className="min-h-screen bg-[#F7F9FA] dark:bg-slate-950 flex items-center justify-center text-slate-500 font-medium">
         Carregando painel profissional...
       </div>
     );
@@ -164,148 +144,106 @@ export default function NutriLayout({ children, title, actions, user: propUser, 
     <div className="min-h-screen bg-[#F7F9FA] dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col md:flex-row font-sans">
       
       {/* Mobile Header */}
-      <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-xs">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/dashboard/nutri')}>
-          <span className="text-2xl">🥗</span>
-          <span className="font-extrabold text-sm text-emerald-950 dark:text-emerald-300">NutriAdesão</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-yellow-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-            aria-label="Alternar Tema"
-            title="Alternar Tema"
-          >
-            {isDarkMode ? '☀️' : '🌙'}
-          </button>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition focus:outline-none"
-            aria-label="Abrir Menu"
-          >
-            {mobileMenuOpen ? '✕' : '☰'}
-          </button>
-        </div>
+      <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+        <Link href="/dashboard/nutri" className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            <span className="text-lg">🌿</span>
+          </div>
+          <div>
+            <span className="font-bold text-sm text-slate-900 dark:text-slate-100 block">NutriAdesão</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Sistema de gestão nutricional</span>
+          </div>
+        </Link>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+        >
+          {mobileMenuOpen ? '✕' : '☰'}
+        </button>
       </div>
 
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex md:hidden">
-          <div className="w-72 bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col justify-between p-6 animate-slide-right">
-            <div>
-              <div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">🥗</span>
-                  <div>
-                    <span className="font-extrabold text-sm text-emerald-950 dark:text-emerald-300 block">NutriAdesão</span>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md">Painel Clínico</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold text-lg p-1"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <nav className="py-6 space-y-2">
-                {navItems.map((item) => {
-                  const isActive = isNavItemActive(item.href);
-                  return (
-                    <button
-                      key={item.href}
-                      onClick={() => { setMobileMenuOpen(false); router.push(item.href); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${isActive ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
-                    >
-                      <span>{item.icon}</span> {item.label}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 -mx-6 -mb-6 p-6">
-              <div className="mb-3 truncate">
-                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block truncate">{nutriName}</span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">{user?.email}</span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="w-full bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-700 dark:hover:text-rose-300 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold py-2.5 px-3 rounded-xl transition shadow-2xs flex items-center justify-center gap-2"
-              >
-                🚪 Sair da conta
-              </button>
-            </div>
-          </div>
-          <div className="flex-1" onClick={() => setMobileMenuOpen(false)}></div>
-        </div>
-      )}
-
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col justify-between shrink-0 min-h-screen sticky top-0 z-30 shadow-2xs">
+      {/* Sidebar (Desktop & Mobile Drawer) */}
+      <aside className={`fixed md:static inset-y-0 left-0 z-50 w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div>
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between cursor-pointer" onClick={() => router.push('/dashboard/nutri')}>
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🥗</span>
-              <div>
-                <span className="font-extrabold text-base text-emerald-950 dark:text-emerald-300 tracking-tight block">NutriAdesão</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md">Painel Clínico</span>
+          {/* Top Profile / Brand Header */}
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+            <Link href="/dashboard/nutri" className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition group">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400">
+                  <span>🌿</span>
+                </div>
+                <div className="text-left">
+                  <span className="font-bold text-sm text-slate-900 dark:text-slate-100 block group-hover:text-emerald-600 transition">NutriAdesão</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate max-w-[140px]">Sistema de gestão nutricional</span>
+                </div>
               </div>
-            </div>
+              <span className="text-slate-400 text-xs">▼</span>
+            </Link>
           </div>
 
-          <nav className="p-4 space-y-1.5">
+          {/* Navigation Links */}
+          <nav className="p-3 space-y-1">
             {navItems.map((item) => {
               const isActive = isNavItemActive(item.href);
               return (
-                <button
+                <Link
                   key={item.href}
-                  onClick={() => router.push(item.href)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${isActive ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+                    isActive 
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold' 
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
                 >
-                  <span>{item.icon}</span> {item.label}
-                </button>
+                  <div className="flex items-center gap-3">
+                    <span className="text-base">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">{item.badge}</span>
+                  )}
+                </Link>
               );
             })}
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="truncate">
-              <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block truncate">{nutriName}</span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">{user?.email}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="flex-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-yellow-400 border border-slate-200 dark:border-slate-700 text-xs font-semibold py-2 px-3 rounded-xl transition shadow-2xs flex items-center justify-center gap-2"
-              title="Alternar Tema Claro/Escuro"
-            >
+        {/* Footer Actions (Settings, Theme Toggle & Logout) */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-1">
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200 transition"
+          >
+            <div className="flex items-center gap-3">
               <span>{isDarkMode ? '☀️' : '🌙'}</span>
-              <span>{isDarkMode ? 'Modo Claro' : 'Modo Escuro'}</span>
-            </button>
-          </div>
+              <span>Aparência</span>
+            </div>
+            <span className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md font-medium">
+              {isDarkMode ? 'Modo Escuro' : 'Modo Claro'}
+            </span>
+          </button>
+
           <button
             onClick={handleLogout}
-            className="w-full bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-700 dark:hover:text-rose-300 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold py-2 px-3 rounded-xl transition shadow-2xs flex items-center justify-center gap-2"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
           >
-            🚪 Sair da conta
+            <span>🚪</span>
+            <span>Sair da conta</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Overlay for mobile drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={() => setMobileMenuOpen(false)}></div>
+      )}
+
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 hidden md:flex items-center justify-between sticky top-0 z-20 shadow-xs">
-          <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{title}</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            {actions}
-          </div>
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 hidden md:flex items-center justify-between sticky top-0 z-20 shadow-2xs">
+          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{title}</h2>
+          <div className="flex items-center gap-3">{actions}</div>
         </header>
 
         <div className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-8">
