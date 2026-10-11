@@ -275,9 +275,10 @@ function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreateP
 // VIEW: PACIENTES
 // ============================================================================
 
-function PatientsView({ patients, onNewPatient }: {
+function PatientsView({ patients, onNewPatient, onEditPatient }: {
   patients: PatientProfile[];
   onNewPatient: () => void;
+  onEditPatient: (patient: PatientProfile) => void;
 }) {
   const statusBadge = (p: PatientProfile) => {
     const base = 'text-[10px] font-extrabold px-2.5 py-1 rounded-full';
@@ -319,16 +320,25 @@ function PatientsView({ patients, onNewPatient }: {
             <div key={p.id} className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs flex flex-col gap-4">
               {/* Cabeçalho do card */}
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-lg font-bold text-emerald-700 shrink-0">
                     {(p.full_name ?? '?')[0].toUpperCase()}
                   </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-sm leading-tight">{p.full_name ?? '—'}</h3>
-                    <p className="text-xs text-slate-500 truncate max-w-[150px]">{p.email ?? '—'}</p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-slate-900 text-sm leading-tight truncate">{p.full_name ?? '—'}</h3>
+                    <p className="text-xs text-slate-500 truncate">{p.email ?? '—'}</p>
                   </div>
                 </div>
-                {p.adherence != null && <span className={statusBadge(p)}>{p.adherence}%</span>}
+                <div className="flex items-center gap-2 shrink-0">
+                  {p.adherence != null && <span className={statusBadge(p)}>{p.adherence}%</span>}
+                  <button
+                    onClick={() => onEditPatient(p)}
+                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 transition flex items-center justify-center text-sm"
+                    title="Editar paciente"
+                  >
+                    ✏️
+                  </button>
+                </div>
               </div>
 
               {/* Detalhes */}
@@ -563,6 +573,135 @@ function SettingsView({ user, nutriName, onUpdateProfile, submitting }: {
           <p><strong>ID da Conta:</strong> <span className="font-mono text-[10px]">{user?.id ?? '—'}</span></p>
           <p><strong>Papel:</strong> Nutricionista</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// MODAL: EDITAR PACIENTE
+// ============================================================================
+
+function EditPatientModal({ isOpen, onClose, patient, onSubmit, submitting }: {
+  isOpen: boolean;
+  onClose: () => void;
+  patient: PatientProfile | null;
+  onSubmit: (data: PatientFormData) => Promise<void>;
+  submitting: boolean;
+}) {
+  const empty: PatientFormData = { full_name: '', email: '', phone: '', objective: '', notes: '' };
+  const [form, setForm] = useState<PatientFormData>(empty);
+
+  // Inicializar formulário com dados da paciente quando abrir o modal
+  useEffect(() => {
+    if (patient) {
+      setForm({
+        full_name: patient.full_name || '',
+        email: patient.email || '',
+        phone: patient.phone || '',
+        objective: patient.objective || '',
+        notes: patient.notes || '',
+      });
+    } else {
+      setForm(empty);
+    }
+  }, [patient]);
+
+  const set = (field: keyof PatientFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onSubmit(form);
+  };
+
+  if (!isOpen || !patient) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-8 my-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Editar Paciente</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Atualize os dados da paciente {patient.full_name}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold text-lg px-2" aria-label="Fechar">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nome */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Nome Completo *</label>
+            <input
+              type="text" required value={form.full_name} onChange={set('full_name')}
+              placeholder="Ex: Ana Paula Ferreira"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Email e Telefone em grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">E-mail</label>
+              <input
+                type="email" value={form.email} onChange={set('email')}
+                placeholder="ana@exemplo.com"
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Telefone / WhatsApp</label>
+              <input
+                type="tel" value={form.phone} onChange={set('phone')}
+                placeholder="(11) 99999-9999"
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Objetivo */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Objetivo Principal</label>
+            <select
+              value={form.objective} onChange={set('objective')}
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+            >
+              <option value="">— Selecione o objetivo —</option>
+              <option value="Emagrecimento">Emagrecimento</option>
+              <option value="Hipertrofia">Hipertrofia / Ganho de massa</option>
+              <option value="Manutenção">Manutenção do peso</option>
+              <option value="Reeducação alimentar">Reeducação alimentar</option>
+              <option value="Saúde e qualidade de vida">Saúde e qualidade de vida</option>
+              <option value="Controlo glicémico">Controlo glicémico</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+
+          {/* Observações */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Observações / Notas Clínicas</label>
+            <textarea
+              value={form.notes} onChange={set('notes')}
+              placeholder="Alergias, restrições alimentares, histórico relevante…"
+              rows={3}
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
+              Cancelar
+            </button>
+            <button type="submit" disabled={submitting || !form.full_name.trim()}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+              {submitting ? (
+                <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> A guardar…</>
+              ) : 'Atualizar Paciente'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -852,6 +991,9 @@ export default function NutriDashboard() {
         .select('id, title, created_at, start_date, end_date, notes, meals_json, patient_id, nutritionist_id, profiles:patient_id(full_name)')
         .order('created_at', { ascending: false });
 
+      // CONSOLE LOG SOLICITADO para inspecionar a resposta
+      console.log('Planos buscados:', plans, plansErr);
+
       if (plansErr) {
         console.error('❌ [fetchMealPlans] Erro ao buscar meal_plans:', plansErr);
         const { data: basicPlans } = await supabase
@@ -870,12 +1012,62 @@ export default function NutriDashboard() {
     }
   }, []);
 
+  // ── fetchPatients helper ───────────────────────────────────────────────────
+  const fetchPatients = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      let patientRows: PatientProfile[] = [];
+      const { data: pts, error: ptsErr } = await supabase
+        .from('patients')
+        .select('id, full_name, email, phone, objective, notes, nutritionist_id')
+        .eq('nutritionist_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!ptsErr && pts && pts.length > 0) {
+        patientRows = pts.map((p, i) => ({
+          ...p,
+          adherence: DEMO_PATIENTS[i % DEMO_PATIENTS.length].adherence,
+          status:    DEMO_PATIENTS[i % DEMO_PATIENTS.length].status,
+          cycleDay:  DEMO_PATIENTS[i % DEMO_PATIENTS.length].cycleDay,
+          topReason: DEMO_PATIENTS[i % DEMO_PATIENTS.length].topReason,
+          planTitle: DEMO_PATIENTS[i % DEMO_PATIENTS.length].planTitle,
+          source:    'db' as const,
+        }));
+      } else {
+        // Fallback: tabela profiles (schema antigo)
+        const { data: pData } = await supabase
+          .from('profiles').select('id, full_name').eq('role', 'patient');
+        if (pData && pData.length > 0) {
+          patientRows = pData.map((p, i) => ({
+            ...p,
+            email:     DEMO_PATIENTS[i % DEMO_PATIENTS.length].email,
+            adherence: DEMO_PATIENTS[i % DEMO_PATIENTS.length].adherence,
+            status:    DEMO_PATIENTS[i % DEMO_PATIENTS.length].status,
+            cycleDay:  DEMO_PATIENTS[i % DEMO_PATIENTS.length].cycleDay,
+            topReason: DEMO_PATIENTS[i % DEMO_PATIENTS.length].topReason,
+            planTitle: DEMO_PATIENTS[i % DEMO_PATIENTS.length].planTitle,
+            source:    'db' as const,
+          }));
+        } else {
+          patientRows = DEMO_PATIENTS;
+        }
+      }
+
+      setPatients(patientRows);
+    } catch (err) {
+      console.error('❌ [fetchPatients] Erro:', err);
+    }
+  }, [user]);
+
   // ── UI ─────────────────────────────────────────────────────────────────────
-  const [mobileOpen,       setMobileOpen]       = useState(false);
-  const [planModalOpen,    setPlanModalOpen]     = useState(false);
-  const [patientModalOpen, setPatientModalOpen]  = useState(false);
-  const [submitting,       setSubmitting]        = useState(false);
-  const [toasts,           setToasts]            = useState<Toast[]>([]);
+  const [mobileOpen,          setMobileOpen]          = useState(false);
+  const [planModalOpen,       setPlanModalOpen]       = useState(false);
+  const [patientModalOpen,    setPatientModalOpen]    = useState(false);
+  const [editPatientModalOpen, setEditPatientModalOpen] = useState(false);
+  const [editingPatient,      setEditingPatient]      = useState<PatientProfile | null>(null);
+  const [submitting,          setSubmitting]          = useState(false);
+  const [toasts,              setToasts]              = useState<Toast[]>([]);
 
   const addToast = useCallback((message: string, kind: Toast['kind'] = 'info') => {
     setToasts(prev => [...prev, { id: `t-${Date.now()}-${Math.random()}`, message, kind }]);
@@ -924,7 +1116,10 @@ export default function NutriDashboard() {
         if (profile.role !== 'nutritionist') { setAuthError(`Acesso negado (role: ${profile.role}).`); return; }
         if (alive) setNutriName(formatDoctorName(profile.full_name, u.email));
 
-        // Pacientes da tabela 'patients' (após migration)
+        // Definir o user primeiro para que fetchPatients possa funcionar
+        if (alive) setUser(u);
+        
+        // Buscar pacientes usando o mesmo código anterior para evitar dependências circulares
         let patientRows: PatientProfile[] = [];
         const { data: pts, error: ptsErr } = await supabase
           .from('patients')
@@ -1032,6 +1227,65 @@ export default function NutriDashboard() {
     }
   };
 
+  // ── editar paciente ────────────────────────────────────────────────────────
+  const handleEditPatient = (patient: PatientProfile) => {
+    setEditingPatient(patient);
+    setEditPatientModalOpen(true);
+  };
+
+  const handleUpdatePatient = async (data: PatientFormData) => {
+    if (!user || !editingPatient) {
+      addToast('Paciente ou usuário não encontrado.', 'error');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        full_name: data.full_name.trim(),
+        email: data.email.trim() || null,
+        phone: data.phone.trim() || null,
+        objective: data.objective.trim() || null,
+        notes: data.notes.trim() || null,
+      };
+
+      console.log('📤 [updatePatient] payload:', payload, 'for patient ID:', editingPatient.id);
+
+      const { data: updated, error } = await supabase
+        .from('patients')
+        .update(payload)
+        .eq('id', editingPatient.id)
+        .select()
+        .single();
+
+      if (error) {
+        let msg: string;
+        switch (error.code) {
+          case '42P01': msg = 'Tabela "patients" não existe. Execute a migration supabase_migration_patients.sql no Supabase SQL Editor.'; break;
+          case '42501': msg = 'Permissão negada pela política RLS. Certifique-se de que a migration foi executada.'; break;
+          case '23505': msg = 'Já existe uma paciente com este e-mail.'; break;
+          default: msg = `Erro ao atualizar paciente (${error.code ?? 'N/A'}): ${error.message}`;
+        }
+        console.error('❌ [updatePatient]', error);
+        addToast(msg, 'error');
+        return;
+      }
+
+      console.log('✅ [updatePatient] sucesso:', updated);
+      addToast(`✅ Paciente "${data.full_name}" atualizada com sucesso!`, 'success');
+      setEditPatientModalOpen(false);
+      setEditingPatient(null);
+
+      // Recarregar a lista de pacientes
+      await fetchPatients();
+
+    } catch (err) {
+      addToast(`Excepção: ${err instanceof Error ? err.message : String(err)}`, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ── gravar plano ───────────────────────────────────────────────────────────
   const handleCreatePlan = async (data: PlanFormData) => {
     if (!user) { addToast('Utilizador não autenticado.', 'error'); return; }
@@ -1082,6 +1336,7 @@ export default function NutriDashboard() {
       setPlanModalOpen(false);
 
       // Chamar função de busca/listagem imediatamente para atualizar o estado local da tela
+      // Recarregar tanto na montagem do componente quanto quando um novo plano for salvo
       await fetchMealPlans();
 
     } catch (err) {
@@ -1295,7 +1550,7 @@ export default function NutriDashboard() {
               />
             )}
             {activeView === 'patients' && (
-              <PatientsView patients={patients} onNewPatient={() => setPatientModalOpen(true)} />
+              <PatientsView patients={patients} onNewPatient={() => setPatientModalOpen(true)} onEditPatient={handleEditPatient} />
             )}
             {activeView === 'meal-plans' && (
               <MealPlansView
@@ -1324,6 +1579,16 @@ export default function NutriDashboard() {
         isOpen={patientModalOpen}
         onClose={() => setPatientModalOpen(false)}
         onSubmit={handleCreatePatient}
+        submitting={submitting}
+      />
+      <EditPatientModal
+        isOpen={editPatientModalOpen}
+        onClose={() => {
+          setEditPatientModalOpen(false);
+          setEditingPatient(null);
+        }}
+        patient={editingPatient}
+        onSubmit={handleUpdatePatient}
         submitting={submitting}
       />
       <CreatePlanModal
