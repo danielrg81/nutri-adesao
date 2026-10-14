@@ -50,10 +50,11 @@ type ViewType =
   | 'patients'  | 'pacientes'
   | 'meal-plans'| 'planos'
   | 'consultas' | 'consultas-view'
+  | 'receitas'  | 'recipes'
   | 'reports'   | 'relatorios'
   | 'settings'  | 'configuracoes';
 
-type NormalizedView = 'dashboard' | 'patients' | 'meal-plans' | 'consultas' | 'reports' | 'settings';
+type NormalizedView = 'dashboard' | 'patients' | 'meal-plans' | 'consultas' | 'receitas' | 'reports' | 'settings';
 
 type Toast = {
   id: string;
@@ -88,6 +89,7 @@ function normalizeView(v: ViewType): NormalizedView {
     patients: 'patients', pacientes: 'patients',
     'meal-plans': 'meal-plans', planos: 'meal-plans',
     consultas: 'consultas', 'consultas-view': 'consultas',
+    receitas: 'receitas', recipes: 'receitas',
     reports: 'reports', relatorios: 'reports',
     settings: 'settings', configuracoes: 'settings',
   };
@@ -170,13 +172,14 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 // VIEW: DASHBOARD
 // ============================================================================
 
-function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreatePlan, onDeletePlan }: {
+function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreatePlan, onDeletePlan, onEditPlan }: {
   nutriName: string;
   patients: PatientProfile[];
   recentPlans: MealPlan[];
   onNavigate: (v: ViewType) => void;
   onCreatePlan: () => void;
   onDeletePlan: (planId: string, planTitle: string) => void;
+  onEditPlan: (plan: MealPlan) => void;
 }) {
   const total        = patients.length;
   const avgAdherence = total > 0 ? Math.round(patients.reduce((s, p) => s + (p.adherence ?? 75), 0) / total) : 0;
@@ -262,6 +265,13 @@ function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreateP
                     <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                       {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
                     </span>
+                    <button
+                      onClick={() => onEditPlan(plan)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition flex items-center justify-center text-sm"
+                      title="Editar plano"
+                    >
+                      ✏️
+                    </button>
                     <button
                       onClick={() => onDeletePlan(plan.id, plan.title)}
                       className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950 hover:bg-rose-100 text-rose-600 dark:text-rose-400 transition flex items-center justify-center text-sm"
@@ -395,7 +405,8 @@ function MealPlansView({
   selectedPatientId,
   onSelectPatient,
   onCreatePlan,
-  onDeletePlan
+  onDeletePlan,
+  onEditPlan
 }: {
   plans: MealPlan[];
   patients: PatientProfile[];
@@ -403,6 +414,7 @@ function MealPlansView({
   onSelectPatient: (id: string) => void;
   onCreatePlan: () => void;
   onDeletePlan: (planId: string, planTitle: string) => void;
+  onEditPlan: (plan: MealPlan) => void;
 }) {
   const filteredPlans = selectedPatientId
     ? plans.filter(p => p.patient_id === selectedPatientId)
@@ -450,6 +462,13 @@ function MealPlansView({
                     <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                       {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
                     </span>
+                    <button
+                      onClick={() => onEditPlan(plan)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition flex items-center justify-center text-sm"
+                      title="Editar plano"
+                    >
+                      ✏️
+                    </button>
                     <button
                       onClick={() => onDeletePlan(plan.id, plan.title)}
                       className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950 hover:bg-rose-100 text-rose-600 dark:text-rose-400 transition flex items-center justify-center text-sm"
@@ -761,6 +780,103 @@ function CreatePlanModal({ isOpen, onClose, patients, onSubmit, submitting }: {
   );
 }
 
+function EditPlanModal({ isOpen, onClose, patients, plan, onSubmit, submitting }: {
+  isOpen: boolean; onClose: () => void; patients: PatientProfile[]; plan: MealPlan | null;
+  onSubmit: (data: PlanFormData) => Promise<void>; submitting: boolean;
+}) {
+  const [patientId, setPatientId] = useState('');
+  const [title, setTitle]     = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate]   = useState('');
+  const [notes, setNotes]     = useState('');
+  const [meals, setMeals] = useState<MealItem[]>(DEFAULT_MEALS);
+
+  useEffect(() => {
+    if (plan) {
+      setPatientId(plan.patient_id || '');
+      setTitle(plan.title || '');
+      setStartDate(plan.start_date || new Date().toISOString().slice(0, 10));
+      setEndDate(plan.end_date || new Date().toISOString().slice(0, 10));
+      setNotes(plan.notes || '');
+      setMeals(Array.isArray(plan.meals_json) && plan.meals_json.length > 0 ? plan.meals_json : DEFAULT_MEALS);
+    }
+  }, [plan]);
+
+  const changeMeal = (i: number, f: keyof MealItem, v: string) => setMeals(prev => { const a = [...prev]; a[i] = { ...a[i], [f]: v }; return a; });
+  const addMeal = () => setMeals(prev => [...prev, { id: `m_${Date.now()}`, time: '10:00', title: 'Novo Lanche', description: 'Descrição' }]);
+  const removeMeal = (i: number) => setMeals(prev => prev.filter((_, idx) => idx !== i));
+
+  if (!isOpen || !plan) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-8 my-8 text-slate-800 dark:text-slate-100">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">Editar Plano Alimentar</h2>
+          <button onClick={onClose} className="text-slate-400 font-bold text-lg px-2">✕</button>
+        </div>
+        <form onSubmit={async e => { e.preventDefault(); await onSubmit({ patientId, title, startDate, endDate, notes, meals }); }} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1">Paciente *</label>
+            <select required value={patientId} onChange={e => setPatientId(e.target.value)}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800">
+              <option value="">— Selecione uma paciente —</option>
+              {patients.map(p => (<option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>))}
+            </select>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-1">
+              <label className="block text-xs font-semibold mb-1">Título *</label>
+              <input type="text" required value={title} onChange={e => setTitle(e.target.value)}
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1">Início *</label>
+              <input type="date" required value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1">Término *</label>
+              <input type="date" required value={endDate} onChange={e => setEndDate(e.target.value)}
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1">Notas / Observações</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold">Refeições do Plano</label>
+              <button type="button" onClick={addMeal} className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline">+ Adicionar Refeição</button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {meals.map((m, idx) => (
+                <div key={m.id || idx} className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input type="text" value={m.time} onChange={e => changeMeal(idx, 'time', e.target.value)} placeholder="Horário (ex: 08:00)"
+                      className="w-24 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs bg-white dark:bg-slate-800" />
+                    <input type="text" value={m.title} onChange={e => changeMeal(idx, 'title', e.target.value)} placeholder="Título (ex: Café da Manhã)"
+                      className="flex-1 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs bg-white dark:bg-slate-800" />
+                    <button type="button" onClick={() => removeMeal(idx)} className="text-rose-500 hover:text-rose-700 text-xs font-bold px-2">✕</button>
+                  </div>
+                  <input type="text" value={m.description} onChange={e => changeMeal(idx, 'description', e.target.value)} placeholder="Descrição dos alimentos..."
+                    className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs bg-white dark:bg-slate-800" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm">Cancelar</button>
+            <button type="submit" disabled={submitting || !patientId} className="bg-emerald-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl">Salvar Alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================================
 // PÁGINA PRINCIPAL
 // ============================================================================
@@ -854,6 +970,8 @@ export default function NutriDashboard() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [editPlanModalOpen, setEditPlanModalOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<MealPlan | null>(null);
   const [patientModalOpen, setPatientModalOpen] = useState(false);
   const [editPatientModalOpen, setEditPatientModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientProfile | null>(null);
@@ -867,11 +985,12 @@ export default function NutriDashboard() {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const navItems: { label: string; view: ViewType; icon: string }[] = [
+  const navItems: { label: string; view: ViewType; icon: string; badge?: string }[] = [
     { label: 'Dashboard',          view: 'dashboard',  icon: '📊' },
     { label: 'Pacientes',          view: 'patients',   icon: '👥' },
     { label: 'Planos Alimentares', view: 'meal-plans', icon: '📋' },
     { label: 'Consultas',          view: 'consultas',  icon: '📅' },
+    { label: 'Receitas',           view: 'receitas',   icon: '📖', badge: 'Beta' },
     { label: 'Relatórios',         view: 'reports',    icon: '📈' },
     { label: 'Configurações',      view: 'settings',   icon: '⚙️' },
   ];
@@ -881,6 +1000,7 @@ export default function NutriDashboard() {
     patients:     'Gestão de Pacientes',
     'meal-plans': 'Planos Alimentares',
     consultas:    'Gestão de Consultas e Agendamentos',
+    receitas:     'Receitas (Versão Beta)',
     reports:      'Relatórios Clínicos',
     settings:     'Configurações do Consultório',
   };
@@ -935,6 +1055,26 @@ export default function NutriDashboard() {
       if (error) { addToast(error.message, 'error'); return; }
       addToast('Plano gravado com sucesso!', 'success');
       setPlanModalOpen(false);
+      await fetchMealPlans();
+    } finally { setSubmitting(false); }
+  };
+
+  const handleUpdatePlan = async (data: PlanFormData) => {
+    if (!user || !editingPlan) return;
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('meal_plans').update({
+        patient_id: data.patientId,
+        title: data.title,
+        start_date: data.startDate,
+        end_date: data.endDate,
+        notes: data.notes || null,
+        meals_json: data.meals,
+      }).eq('id', editingPlan.id);
+      if (error) { addToast(error.message, 'error'); return; }
+      addToast('Plano atualizado com sucesso!', 'success');
+      setEditPlanModalOpen(false);
+      setEditingPlan(null);
       await fetchMealPlans();
     } finally { setSubmitting(false); }
   };
@@ -999,8 +1139,15 @@ export default function NutriDashboard() {
                     const active = normalizeView(item.view) === activeView;
                     return (
                       <button key={item.view} onClick={() => { setCurrentView(item.view); setMobileOpen(false); }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${active ? 'bg-slate-100 dark:bg-slate-800 font-semibold' : 'text-slate-600 dark:text-slate-400'}`}>
-                        <span>{item.icon}</span><span>{item.label}</span>
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition ${active ? 'bg-slate-100 dark:bg-slate-800 font-semibold' : 'text-slate-600 dark:text-slate-400'}`}>
+                        <div className="flex items-center gap-3">
+                          <span>{item.icon}</span><span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-md font-bold">
+                            {item.badge}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -1058,9 +1205,13 @@ export default function NutriDashboard() {
                       <span className="text-base">{item.icon}</span>
                       <span>{item.label}</span>
                     </div>
-                    {isDashboard && (
+                    {item.badge ? (
+                      <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-md font-bold">
+                        {item.badge}
+                      </span>
+                    ) : isDashboard ? (
                       <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">Página inicial</span>
-                    )}
+                    ) : null}
                   </button>
                 );
               })}
@@ -1112,13 +1263,29 @@ export default function NutriDashboard() {
 
           <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
             {activeView === 'dashboard' && (
-              <DashboardView nutriName={nutriName} patients={patients} recentPlans={recentPlans} onNavigate={setCurrentView} onCreatePlan={() => setPlanModalOpen(true)} onDeletePlan={handleDeletePlan} />
+              <DashboardView nutriName={nutriName} patients={patients} recentPlans={recentPlans} onNavigate={setCurrentView} onCreatePlan={() => setPlanModalOpen(true)} onDeletePlan={handleDeletePlan} onEditPlan={p => { setEditingPlan(p); setEditPlanModalOpen(true); }} />
             )}
             {activeView === 'patients' && (
               <PatientsView patients={patients} onNewPatient={() => setPatientModalOpen(true)} onEditPatient={p => { setEditingPatient(p); setEditPatientModalOpen(true); }} />
             )}
             {activeView === 'meal-plans' && (
-              <MealPlansView plans={recentPlans} patients={patients} selectedPatientId={selectedPlanPatientId} onSelectPatient={setSelectedPlanPatientId} onCreatePlan={() => setPlanModalOpen(true)} onDeletePlan={handleDeletePlan} />
+              <MealPlansView plans={recentPlans} patients={patients} selectedPatientId={selectedPlanPatientId} onSelectPatient={setSelectedPlanPatientId} onCreatePlan={() => setPlanModalOpen(true)} onDeletePlan={handleDeletePlan} onEditPlan={p => { setEditingPlan(p); setEditPlanModalOpen(true); }} />
+            )}
+            {activeView === 'receitas' && (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Receitas 📖</h1>
+                    <span className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-xs font-bold px-3 py-1 rounded-full">Versão Beta</span>
+                  </div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">Cadastre e gerencie receitas saudáveis para recomendar aos seus pacientes (Recursos em desenvolvimento).</p>
+                </div>
+                <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3">
+                  <div className="text-4xl">📖</div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Biblioteca de Receitas em Breve</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Em breve você poderá criar, salvar e vincular receitas personalizadas aos planos alimentares.</p>
+                </div>
+              </div>
             )}
             {activeView === 'consultas' && (
               <div className="space-y-6">
@@ -1136,6 +1303,7 @@ export default function NutriDashboard() {
       <NewPatientModal isOpen={patientModalOpen} onClose={() => setPatientModalOpen(false)} onSubmit={handleCreatePatient} submitting={submitting} />
       <EditPatientModal isOpen={editPatientModalOpen} onClose={() => { setEditPatientModalOpen(false); setEditingPatient(null); }} patient={editingPatient} onSubmit={handleUpdatePatient} submitting={submitting} />
       <CreatePlanModal isOpen={planModalOpen} onClose={() => setPlanModalOpen(false)} patients={patients} onSubmit={handleCreatePlan} submitting={submitting} />
+      <EditPlanModal isOpen={editPlanModalOpen} onClose={() => { setEditPlanModalOpen(false); setEditingPlan(null); }} patients={patients} plan={editingPlan} onSubmit={handleUpdatePlan} submitting={submitting} />
     </>
   );
 }
