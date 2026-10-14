@@ -32,8 +32,6 @@ type MealItem = {
   description: string;
 };
 
-// Reflecte exactamente o schema: patient_id, nutritionist_id, title,
-// start_date, end_date, meals_json. Sem cycle_id, sem notes.
 type MealPlan = {
   id: string;
   patient_id: string;
@@ -43,7 +41,6 @@ type MealPlan = {
   end_date: string;
   notes?: string | null;
   meals_json: MealItem[];
-  // Suporte para both patients e profiles tables
   profiles?: { full_name?: string | null };
   patients?: { full_name?: string | null };
 };
@@ -52,10 +49,11 @@ type ViewType =
   | 'dashboard' | 'inicio'
   | 'patients'  | 'pacientes'
   | 'meal-plans'| 'planos'
+  | 'consultas' | 'consultas-view'
   | 'reports'   | 'relatorios'
   | 'settings'  | 'configuracoes';
 
-type NormalizedView = 'dashboard' | 'patients' | 'meal-plans' | 'reports' | 'settings';
+type NormalizedView = 'dashboard' | 'patients' | 'meal-plans' | 'consultas' | 'reports' | 'settings';
 
 type Toast = {
   id: string;
@@ -89,6 +87,7 @@ function normalizeView(v: ViewType): NormalizedView {
     dashboard: 'dashboard', inicio: 'dashboard',
     patients: 'patients', pacientes: 'patients',
     'meal-plans': 'meal-plans', planos: 'meal-plans',
+    consultas: 'consultas', 'consultas-view': 'consultas',
     reports: 'reports', relatorios: 'reports',
     settings: 'settings', configuracoes: 'settings',
   };
@@ -110,7 +109,6 @@ function formatDoctorName(fullName?: string | null, email?: string | null): stri
   return 'Dra. Juliana';
 }
 
-// Helper para obter nome da paciente de qualquer estrutura (patients ou profiles)
 function getPatientName(plan: MealPlan): string {
   return plan.patients?.full_name || plan.profiles?.full_name || '—';
 }
@@ -187,59 +185,56 @@ function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreateP
 
   return (
     <div className="space-y-6">
-      {/* Saudação */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Olá, {nutriName} 👋</h1>
-          <p className="text-slate-500 text-sm mt-1">Acompanhe a evolução das suas pacientes e identifique quem precisa de atenção.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Olá, {nutriName} 👋</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Acompanhe a evolução das suas pacientes e identifique quem precisa de atenção.</p>
         </div>
-        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-900 px-4 py-2 rounded-2xl border border-emerald-100 text-xs font-bold self-start md:self-auto">
+        <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-800 text-xs font-bold self-start md:self-auto">
           <span>🟢 Sistema Ativo</span>
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
         </div>
       </div>
 
-      {/* Métricas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {[
-          { label: 'Pacientes Totais',    value: total,              sub: '↑ Cadastradas',    icon: '👥', color: 'bg-emerald-50' },
-          { label: 'Adesão Média',        value: `${avgAdherence}%`, sub: 'Desempenho geral',  icon: '📈', color: 'bg-teal-50'   },
-          { label: 'Precisam de Atenção', value: needAttn,           sub: 'Adesão < 60%',      icon: '⚠️', color: 'bg-rose-50',  valueClass: 'text-rose-600' },
-          { label: 'Ativas no Ciclo',     value: total,              sub: 'Ciclo de 30 Dias',  icon: '🔄', color: 'bg-teal-50'   },
+          { label: 'Pacientes Totais',    value: total,              sub: '↑ Cadastradas',    icon: '👥', color: 'bg-emerald-50 dark:bg-emerald-950/40' },
+          { label: 'Adesão Média',        value: `${avgAdherence}%`, sub: 'Desempenho geral',  icon: '📈', color: 'bg-teal-50 dark:bg-teal-950/40'   },
+          { label: 'Precisam de Atenção', value: needAttn,           sub: 'Adesão < 60%',      icon: '⚠️', color: 'bg-rose-50 dark:bg-rose-950/40',  valueClass: 'text-rose-600 dark:text-rose-400' },
+          { label: 'Ativas no Ciclo',     value: total,              sub: 'Ciclo de 30 Dias',  icon: '🔄', color: 'bg-teal-50 dark:bg-teal-950/40'   },
         ].map(c => (
-          <div key={c.label} className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+          <div key={c.label} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">{c.label}</span>
-              <span className={`text-3xl font-extrabold mt-1 block ${c.valueClass ?? 'text-slate-900'}`}>{c.value}</span>
-              <span className="text-xs text-emerald-600 font-semibold mt-1 inline-block">{c.sub}</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">{c.label}</span>
+              <span className={`text-3xl font-extrabold mt-1 block ${c.valueClass ?? 'text-slate-900 dark:text-slate-100'}`}>{c.value}</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1 inline-block">{c.sub}</span>
             </div>
             <div className={`w-12 h-12 rounded-2xl ${c.color} flex items-center justify-center text-xl shrink-0`}>{c.icon}</div>
           </div>
         ))}
       </div>
 
-      {/* Atenção */}
       {attnList.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-3xl p-6 md:p-8 shadow-2xs">
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200/80 dark:border-amber-900/50 rounded-3xl p-6 md:p-8 shadow-2xs">
           <div className="flex items-center gap-3 mb-4">
             <span className="text-2xl">⚠️</span>
             <div>
-              <h2 className="text-lg font-bold text-amber-900">Pacientes que Requerem Atenção</h2>
-              <p className="text-xs text-amber-700">Quedas na consistência ou dificuldades recorrentes.</p>
+              <h2 className="text-lg font-bold text-amber-900 dark:text-amber-200">Pacientes que Requerem Atenção</h2>
+              <p className="text-xs text-amber-700 dark:text-amber-400">Quedas na consistência ou dificuldades recorrentes.</p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {attnList.map(p => (
-              <div key={`attn-${p.id}`} className="bg-white p-5 rounded-2xl border border-amber-200/60 shadow-2xs flex flex-col gap-3">
+              <div key={`attn-${p.id}`} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-amber-200/60 dark:border-slate-800 shadow-2xs flex flex-col gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-slate-900 text-sm">{p.full_name ?? p.email}</h3>
-                    <span className="bg-rose-100 text-rose-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">{p.adherence}%</span>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{p.full_name ?? p.email}</h3>
+                    <span className="bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full">{p.adherence}%</span>
                   </div>
-                  <p className="text-xs text-slate-500">Dificuldade: <span className="font-medium text-rose-700">{p.topReason}</span></p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Dificuldade: <span className="font-medium text-rose-700 dark:text-rose-400">{p.topReason}</span></p>
                 </div>
                 <button onClick={() => onNavigate('patients')}
-                  className="w-full bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold text-xs py-2 rounded-xl transition">
+                  className="w-full bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-900 dark:text-amber-300 font-semibold text-xs py-2 rounded-xl transition">
                   Ver pacientes →
                 </button>
               </div>
@@ -248,36 +243,35 @@ function DashboardView({ nutriName, patients, recentPlans, onNavigate, onCreateP
         </div>
       )}
 
-      {/* Planos recentes */}
-      <div className="space-y-4 pt-4 border-t border-slate-200/85">
+      <div className="space-y-4 pt-4 border-t border-slate-200/85 dark:border-slate-800">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900">Planos Alimentares Recentes</h2>
-          <button onClick={() => onNavigate('meal-plans')} className="text-xs text-emerald-700 font-bold hover:underline">Ver todos →</button>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Planos Alimentares Recentes</h2>
+          <button onClick={() => onNavigate('meal-plans')} className="text-xs text-emerald-700 dark:text-emerald-400 font-bold hover:underline">Ver todos →</button>
         </div>
         {recentPlans.length === 0 ? (
-          <div className="bg-white border border-dashed border-slate-200 rounded-3xl p-8 text-center text-slate-500 text-sm">
+          <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-8 text-center text-slate-500 text-sm">
             Nenhum plano cadastrado ainda.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {recentPlans.slice(0, 4).map(plan => (
-              <div key={plan.id} className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs">
+              <div key={plan.id} className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-slate-900 text-base">{plan.title}</h3>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">{plan.title}</h3>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 text-teal-800 border border-teal-200">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                       {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
                     </span>
                     <button
                       onClick={() => onDeletePlan(plan.id, plan.title)}
-                      className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition flex items-center justify-center text-sm"
+                      className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950 hover:bg-rose-100 text-rose-600 dark:text-rose-400 transition flex items-center justify-center text-sm"
                       title="Excluir plano"
                     >
                       🗑️
                     </button>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{getPatientName(plan)}</span></p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Paciente: <span className="font-semibold text-slate-800 dark:text-slate-200">{getPatientName(plan)}</span></p>
                 <p className="text-xs text-slate-400 mt-1">{plan.start_date} até {plan.end_date}</p>
               </div>
             ))}
@@ -299,18 +293,17 @@ function PatientsView({ patients, onNewPatient, onEditPatient }: {
 }) {
   const statusBadge = (p: PatientProfile) => {
     const base = 'text-[10px] font-extrabold px-2.5 py-1 rounded-full';
-    if (p.status === 'red')    return `${base} bg-rose-100  text-rose-800`;
-    if (p.status === 'yellow') return `${base} bg-amber-100 text-amber-800`;
-    return `${base} bg-emerald-100 text-emerald-800`;
+    if (p.status === 'red')    return `${base} bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300`;
+    if (p.status === 'yellow') return `${base} bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300`;
+    return `${base} bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300`;
   };
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Pacientes Cadastradas 👥</h1>
-          <p className="text-slate-500 text-sm mt-1">Lista completa com detalhes de adesão e objectivos.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Pacientes Cadastradas 👥</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Lista completa com detalhes de adesão e objectivos.</p>
         </div>
         <button
           onClick={onNewPatient}
@@ -320,12 +313,11 @@ function PatientsView({ patients, onNewPatient, onEditPatient }: {
         </button>
       </div>
 
-      {/* Listagem */}
       {patients.length === 0 ? (
-        <div className="bg-white border border-dashed border-slate-200 rounded-3xl p-12 text-center space-y-4">
+        <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-4">
           <div className="text-5xl">👤</div>
-          <h3 className="text-base font-bold text-slate-900">Sem pacientes cadastradas</h3>
-          <p className="text-xs text-slate-500 max-w-xs mx-auto">Clique em &ldquo;Nova Paciente&rdquo; para adicionar o primeiro registo.</p>
+          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Sem pacientes cadastradas</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">Clique em &ldquo;Nova Paciente&rdquo; para adicionar o primeiro registo.</p>
           <button onClick={onNewPatient}
             className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition inline-flex items-center gap-2">
             <span>＋</span> Nova Paciente
@@ -334,23 +326,22 @@ function PatientsView({ patients, onNewPatient, onEditPatient }: {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {patients.map(p => (
-            <div key={p.id} className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs flex flex-col gap-4">
-              {/* Cabeçalho do card */}
+            <div key={p.id} className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xs flex flex-col gap-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-lg font-bold text-emerald-700 shrink-0">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-lg font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
                     {(p.full_name ?? '?')[0].toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-slate-900 text-sm leading-tight truncate">{p.full_name ?? '—'}</h3>
-                    <p className="text-xs text-slate-500 truncate">{p.email ?? '—'}</p>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight truncate">{p.full_name ?? '—'}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{p.email ?? '—'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {p.adherence != null && <span className={statusBadge(p)}>{p.adherence}%</span>}
                   <button
                     onClick={() => onEditPatient(p)}
-                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 transition flex items-center justify-center text-sm"
+                    className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition flex items-center justify-center text-sm"
                     title="Editar paciente"
                   >
                     ✏️
@@ -358,8 +349,7 @@ function PatientsView({ patients, onNewPatient, onEditPatient }: {
                 </div>
               </div>
 
-              {/* Detalhes */}
-              <div className="space-y-1.5 text-xs text-slate-600">
+              <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
                 {p.phone && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-slate-400">📞</span>
@@ -375,17 +365,16 @@ function PatientsView({ patients, onNewPatient, onEditPatient }: {
                 {p.planTitle && (
                   <div className="flex items-start gap-1.5">
                     <span className="text-slate-400 mt-0.5">📋</span>
-                    <span className="text-slate-600 font-medium">{p.planTitle}</span>
+                    <span className="text-slate-600 dark:text-slate-300 font-medium">{p.planTitle}</span>
                   </div>
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400">
                 {p.cycleDay != null && <span>Dia {p.cycleDay} do ciclo</span>}
                 {p.topReason && <span className="truncate max-w-[120px]">{p.topReason}</span>}
                 {p.source === 'demo' && (
-                  <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-md font-medium">demo</span>
+                  <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-md font-medium">demo</span>
                 )}
               </div>
             </div>
@@ -421,16 +410,16 @@ function MealPlansView({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Planos Alimentares 📋</h1>
-          <p className="text-slate-500 text-sm mt-1">Gestão e histórico de planos criados para as suas pacientes.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Planos Alimentares 📋</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Gestão e histórico de planos criados para as suas pacientes.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <select
             value={selectedPatientId}
             onChange={e => onSelectPatient(e.target.value)}
-            className="border border-slate-200 rounded-xl px-4 py-2.5 text-xs bg-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="">Todas as Pacientes</option>
             {patients.map(p => (
@@ -445,46 +434,46 @@ function MealPlansView({
       </div>
 
       {filteredPlans.length === 0 ? (
-        <div className="bg-white border border-dashed border-slate-200 rounded-3xl p-12 text-center space-y-3">
+        <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3">
           <div className="text-4xl">📂</div>
-          <h3 className="text-base font-bold text-slate-900">Nenhum plano encontrado</h3>
-          <p className="text-xs text-slate-500">Não existem planos para o filtro selecionado ou clique em &ldquo;+ Criar Novo Plano&rdquo;.</p>
+          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Nenhum plano encontrado</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Não existem planos para o filtro selecionado ou clique em &ldquo;+ Criar Novo Plano&rdquo;.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredPlans.map(plan => (
-            <div key={plan.id} className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs flex flex-col gap-4">
+            <div key={plan.id} className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xs flex flex-col gap-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-slate-900 text-lg">{plan.title}</h3>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">{plan.title}</h3>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 text-teal-800 border border-teal-200">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                       {Array.isArray(plan.meals_json) ? `${plan.meals_json.length} Refeições` : 'Ativo'}
                     </span>
                     <button
                       onClick={() => onDeletePlan(plan.id, plan.title)}
-                      className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition flex items-center justify-center text-sm"
+                      className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950 hover:bg-rose-100 text-rose-600 dark:text-rose-400 transition flex items-center justify-center text-sm"
                       title="Excluir plano"
                     >
                       🗑️
                     </button>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">Paciente: <span className="font-semibold text-slate-800">{getPatientName(plan)}</span></p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Paciente: <span className="font-semibold text-slate-800 dark:text-slate-200">{getPatientName(plan)}</span></p>
                 <p className="text-xs text-slate-400 mt-1">{plan.start_date} até {plan.end_date}</p>
                 {plan.notes && (
-                  <p className="text-xs text-slate-600 mt-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
                     <strong>Notas:</strong> {plan.notes}
                   </p>
                 )}
               </div>
               {Array.isArray(plan.meals_json) && plan.meals_json.length > 0 && (
-                <div className="border-t border-slate-100 pt-3 space-y-1.5">
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-1.5">
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Refeições</span>
                   <div className="max-h-36 overflow-y-auto space-y-1.5">
                     {plan.meals_json.map((m, i) => (
-                      <div key={i} className="text-xs bg-slate-50 p-2 rounded-xl border border-slate-100 flex justify-between gap-2">
-                        <span className="font-semibold text-slate-700 shrink-0">{m.time} — {m.title}</span>
+                      <div key={i} className="text-xs bg-slate-50 dark:bg-slate-800 p-2 rounded-xl border border-slate-100 dark:border-slate-700 flex justify-between gap-2">
+                        <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">{m.time} — {m.title}</span>
                         <span className="text-slate-400 truncate">{m.description}</span>
                       </div>
                     ))}
@@ -506,14 +495,14 @@ function MealPlansView({
 function ReportsView() {
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-xs">
-        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Relatórios de Adesão 📈</h1>
-        <p className="text-slate-500 text-sm mt-1">Relatórios analíticos de adesão e progresso.</p>
+      <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Relatórios de Adesão 📈</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Relatórios analíticos de adesão e progresso.</p>
       </div>
-      <div className="bg-white border border-dashed border-slate-200 rounded-3xl p-12 text-center space-y-3">
+      <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3">
         <div className="text-4xl">📊</div>
-        <h3 className="text-base font-bold text-slate-900">Em Desenvolvimento</h3>
-        <p className="text-xs text-slate-500 max-w-sm mx-auto">Esta funcionalidade estará disponível em breve.</p>
+        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Em Desenvolvimento</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">Esta funcionalidade estará disponível em breve.</p>
       </div>
     </div>
   );
@@ -533,12 +522,8 @@ function SettingsView({ user, nutriName, onUpdateProfile, submitting }: {
   const [email, setEmail] = useState(() => user?.email || '');
 
   useEffect(() => {
-    if (nutriName) {
-      setFullName(nutriName.replace(/^dra?\.?\s*/i, ''));
-    }
-    if (user?.email) {
-      setEmail(user.email);
-    }
+    if (nutriName) setFullName(nutriName.replace(/^dra?\.?\s*/i, ''));
+    if (user?.email) setEmail(user.email);
   }, [nutriName, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -548,186 +533,113 @@ function SettingsView({ user, nutriName, onUpdateProfile, submitting }: {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-xs">
-        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Configurações ⚙️</h1>
-        <p className="text-slate-500 text-sm mt-1">Ajustes da conta e preferências profissionais.</p>
+      <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Configurações ⚙️</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Ajustes da conta e preferências profissionais.</p>
       </div>
 
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 md:p-8 shadow-2xs max-w-xl space-y-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xs max-w-xl space-y-6">
         <div>
-          <h2 className="text-base font-bold text-slate-900">Perfil Profissional</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Actualize o seu nome completo e e-mail de contacto. As alterações refletem-se imediatamente no painel.</p>
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Perfil Profissional</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Actualize o seu nome completo e e-mail de contacto.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Nome Completo *</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome Completo *</label>
             <input
-              type="text"
-              required
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
-              placeholder="Ex: Juliana Mendes"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              type="text" required value={fullName} onChange={e => setFullName(e.target.value)}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">E-mail de Contacto *</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">E-mail de Contacto *</label>
             <input
-              type="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="juliana@exemplo.com"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              type="email" required value={email} onChange={e => setEmail(e.target.value)}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
           <div className="pt-2 flex justify-end">
             <button
-              type="submit"
-              disabled={submitting}
+              type="submit" disabled={submitting}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 flex items-center gap-2"
             >
-              {submitting ? (
-                <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> A guardar…</>
-              ) : 'Guardar Alterações'}
+              {submitting ? 'A guardar…' : 'Guardar Alterações'}
             </button>
           </div>
         </form>
-
-        <div className="border-t border-slate-100 pt-4 space-y-1 text-xs text-slate-400">
-          <p><strong>ID da Conta:</strong> <span className="font-mono text-[10px]">{user?.id ?? '—'}</span></p>
-          <p><strong>Papel:</strong> Nutricionista</p>
-        </div>
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// MODAL: EDITAR PACIENTE
+// MODAIS (Editar / Criar Pacientes e Planos)
 // ============================================================================
 
 function EditPatientModal({ isOpen, onClose, patient, onSubmit, submitting }: {
-  isOpen: boolean;
-  onClose: () => void;
-  patient: PatientProfile | null;
-  onSubmit: (data: PatientFormData) => Promise<void>;
-  submitting: boolean;
+  isOpen: boolean; onClose: () => void; patient: PatientProfile | null;
+  onSubmit: (data: PatientFormData) => Promise<void>; submitting: boolean;
 }) {
   const empty: PatientFormData = { full_name: '', email: '', phone: '', objective: '', notes: '' };
   const [form, setForm] = useState<PatientFormData>(empty);
 
-  // Inicializar formulário com dados da paciente quando abrir o modal
   useEffect(() => {
     if (patient) {
       setForm({
-        full_name: patient.full_name || '',
-        email: patient.email || '',
-        phone: patient.phone || '',
-        objective: patient.objective || '',
-        notes: patient.notes || '',
+        full_name: patient.full_name || '', email: patient.email || '',
+        phone: patient.phone || '', objective: patient.objective || '', notes: patient.notes || '',
       });
-    } else {
-      setForm(empty);
-    }
+    } else { setForm(empty); }
   }, [patient]);
 
   const set = (field: keyof PatientFormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm(prev => ({ ...prev, [field]: e.target.value }));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onSubmit(form);
-  };
-
   if (!isOpen || !patient) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-8 my-8">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-8 my-8 text-slate-800 dark:text-slate-100">
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Editar Paciente</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Atualize os dados da paciente {patient.full_name}</p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold text-lg px-2" aria-label="Fechar">✕</button>
+          <h2 className="text-xl font-bold">Editar Paciente</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold text-lg px-2">✕</button>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nome */}
+        <form onSubmit={async e => { e.preventDefault(); await onSubmit(form); }} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Nome Completo *</label>
-            <input
-              type="text" required value={form.full_name} onChange={set('full_name')}
-              placeholder="Ex: Ana Paula Ferreira"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
+            <label className="block text-xs font-semibold mb-1">Nome Completo *</label>
+            <input type="text" required value={form.full_name} onChange={set('full_name')}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
-
-          {/* Email e Telefone em grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">E-mail</label>
-              <input
-                type="email" value={form.email} onChange={set('email')}
-                placeholder="ana@exemplo.com"
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+              <label className="block text-xs font-semibold mb-1">E-mail</label>
+              <input type="email" value={form.email} onChange={set('email')}
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Telefone / WhatsApp</label>
-              <input
-                type="tel" value={form.phone} onChange={set('phone')}
-                placeholder="(11) 99999-9999"
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+              <label className="block text-xs font-semibold mb-1">Telefone / WhatsApp</label>
+              <input type="tel" value={form.phone} onChange={set('phone')}
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
           </div>
-
-          {/* Objetivo */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Objetivo Principal</label>
-            <select
-              value={form.objective} onChange={set('objective')}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-            >
-              <option value="">— Selecione o objetivo —</option>
+            <label className="block text-xs font-semibold mb-1">Objetivo Principal</label>
+            <select value={form.objective} onChange={set('objective')}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="">— Selecione —</option>
               <option value="Emagrecimento">Emagrecimento</option>
               <option value="Hipertrofia">Hipertrofia / Ganho de massa</option>
               <option value="Manutenção">Manutenção do peso</option>
               <option value="Reeducação alimentar">Reeducação alimentar</option>
-              <option value="Saúde e qualidade de vida">Saúde e qualidade de vida</option>
-              <option value="Controlo glicémico">Controlo glicémico</option>
-              <option value="Outro">Outro</option>
             </select>
           </div>
-
-          {/* Observações */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Observações / Notas Clínicas</label>
-            <textarea
-              value={form.notes} onChange={set('notes')}
-              placeholder="Alergias, restrições alimentares, histórico relevante…"
-              rows={3}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
-              Cancelar
-            </button>
-            <button type="submit" disabled={submitting || !form.full_name.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-              {submitting ? (
-                <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> A guardar…</>
-              ) : 'Atualizar Paciente'}
-            </button>
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm">Cancelar</button>
+            <button type="submit" disabled={submitting} className="bg-emerald-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl">Atualizar</button>
           </div>
         </form>
       </div>
@@ -735,113 +647,53 @@ function EditPatientModal({ isOpen, onClose, patient, onSubmit, submitting }: {
   );
 }
 
-// ============================================================================
-// MODAL: NOVA PACIENTE
-// ============================================================================
-
 function NewPatientModal({ isOpen, onClose, onSubmit, submitting }: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (data: PatientFormData) => Promise<void>;
-  submitting: boolean;
+  isOpen: boolean; onClose: () => void; onSubmit: (data: PatientFormData) => Promise<void>; submitting: boolean;
 }) {
   const empty: PatientFormData = { full_name: '', email: '', phone: '', objective: '', notes: '' };
   const [form, setForm] = useState<PatientFormData>(empty);
-
-  const set = (field: keyof PatientFormData) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-      setForm(prev => ({ ...prev, [field]: e.target.value }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onSubmit(form);
-    setForm(empty);
-  };
+  const set = (field: keyof PatientFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm(prev => ({ ...prev, [field]: e.target.value }));
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-8 my-8">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-8 my-8 text-slate-800 dark:text-slate-100">
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Nova Paciente</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Preencha os dados da nova paciente</p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold text-lg px-2" aria-label="Fechar">✕</button>
+          <h2 className="text-xl font-bold">Nova Paciente</h2>
+          <button onClick={onClose} className="text-slate-400 font-bold text-lg px-2">✕</button>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nome */}
+        <form onSubmit={async e => { e.preventDefault(); await onSubmit(form); setForm(empty); }} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Nome Completo *</label>
-            <input
-              type="text" required value={form.full_name} onChange={set('full_name')}
-              placeholder="Ex: Ana Paula Ferreira"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
+            <label className="block text-xs font-semibold mb-1">Nome Completo *</label>
+            <input type="text" required value={form.full_name} onChange={set('full_name')}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
           </div>
-
-          {/* Email e Telefone em grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">E-mail</label>
-              <input
-                type="email" value={form.email} onChange={set('email')}
-                placeholder="ana@exemplo.com"
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+              <label className="block text-xs font-semibold mb-1">E-mail</label>
+              <input type="email" value={form.email} onChange={set('email')}
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Telefone / WhatsApp</label>
-              <input
-                type="tel" value={form.phone} onChange={set('phone')}
-                placeholder="(11) 99999-9999"
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+              <label className="block text-xs font-semibold mb-1">Telefone / WhatsApp</label>
+              <input type="tel" value={form.phone} onChange={set('phone')}
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
             </div>
           </div>
-
-          {/* Objetivo */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Objetivo Principal</label>
-            <select
-              value={form.objective} onChange={set('objective')}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-            >
-              <option value="">— Selecione o objetivo —</option>
+            <label className="block text-xs font-semibold mb-1">Objetivo Principal</label>
+            <select value={form.objective} onChange={set('objective')}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800">
+              <option value="">— Selecione —</option>
               <option value="Emagrecimento">Emagrecimento</option>
-              <option value="Hipertrofia">Hipertrofia / Ganho de massa</option>
-              <option value="Manutenção">Manutenção do peso</option>
-              <option value="Reeducação alimentar">Reeducação alimentar</option>
-              <option value="Saúde e qualidade de vida">Saúde e qualidade de vida</option>
-              <option value="Controlo glicémico">Controlo glicémico</option>
-              <option value="Outro">Outro</option>
+              <option value="Hipertrofia">Hipertrofia</option>
+              <option value="Manutenção">Manutenção</option>
             </select>
           </div>
-
-          {/* Observações */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Observações / Notas Clínicas</label>
-            <textarea
-              value={form.notes} onChange={set('notes')}
-              placeholder="Alergias, restrições alimentares, histórico relevante…"
-              rows={3}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
-              Cancelar
-            </button>
-            <button type="submit" disabled={submitting || !form.full_name.trim()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-              {submitting ? (
-                <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> A guardar…</>
-              ) : 'Cadastrar Paciente'}
-            </button>
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm">Cancelar</button>
+            <button type="submit" disabled={submitting} className="bg-emerald-600 text-white font-semibold text-sm px-6 py-2.5 rounded-xl">Cadastrar</button>
           </div>
         </form>
       </div>
@@ -849,138 +701,59 @@ function NewPatientModal({ isOpen, onClose, onSubmit, submitting }: {
   );
 }
 
-// ============================================================================
-// MODAL: CRIAR PLANO ALIMENTAR
-// ============================================================================
-
 function CreatePlanModal({ isOpen, onClose, patients, onSubmit, submitting }: {
-  isOpen: boolean;
-  onClose: () => void;
-  patients: PatientProfile[];
-  onSubmit: (data: PlanFormData) => Promise<void>;
-  submitting: boolean;
+  isOpen: boolean; onClose: () => void; patients: PatientProfile[];
+  onSubmit: (data: PlanFormData) => Promise<void>; submitting: boolean;
 }) {
   const [patientId, setPatientId] = useState('');
-  const [title,     setTitle]     = useState('Plano de 30 Dias');
+  const [title, setTitle]     = useState('Plano de 30 Dias');
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [endDate,   setEndDate]   = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10);
-  });
-  const [notes,     setNotes]     = useState('');
+  const [endDate, setEndDate]   = useState(() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); });
+  const [notes, setNotes]     = useState('');
   const [meals, setMeals] = useState<MealItem[]>(DEFAULT_MEALS);
 
-  const changeMeal = (i: number, f: keyof MealItem, v: string) =>
-    setMeals(prev => { const a = [...prev]; a[i] = { ...a[i], [f]: v }; return a; });
-  const addMeal = () => setMeals(prev => [...prev, {
-    id: `m_${Date.now()}`, time: '10:00', title: 'Novo Lanche', description: 'Descrição do alimento',
-  }]);
+  const changeMeal = (i: number, f: keyof MealItem, v: string) => setMeals(prev => { const a = [...prev]; a[i] = { ...a[i], [f]: v }; return a; });
+  const addMeal = () => setMeals(prev => [...prev, { id: `m_${Date.now()}`, time: '10:00', title: 'Novo Lanche', description: 'Descrição' }]);
   const removeMeal = (i: number) => setMeals(prev => prev.filter((_, idx) => idx !== i));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!patientId) return;
-    await onSubmit({ patientId, title, startDate, endDate, notes, meals });
-    setPatientId(''); setTitle('Plano de 30 Dias'); setNotes(''); setMeals(DEFAULT_MEALS);
-  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-8 my-8">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-8 my-8 text-slate-800 dark:text-slate-100">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-teal-900">Criar Novo Plano Alimentar</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold text-lg px-2" aria-label="Fechar">✕</button>
+          <h2 className="text-xl font-bold">Criar Novo Plano Alimentar</h2>
+          <button onClick={onClose} className="text-slate-400 font-bold text-lg px-2">✕</button>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Paciente */}
+        <form onSubmit={async e => { e.preventDefault(); await onSubmit({ patientId, title, startDate, endDate, notes, meals }); }} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Paciente *</label>
+            <label className="block text-xs font-semibold mb-1">Paciente *</label>
             <select required value={patientId} onChange={e => setPatientId(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800">
               <option value="">— Selecione uma paciente —</option>
-              {patients.map(p => (
-                <option key={p.id} value={p.id}>{p.full_name ?? p.email ?? p.id}</option>
-              ))}
+              {patients.map(p => (<option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>))}
             </select>
-            {patientId && (
-              <p className="text-[10px] text-slate-400 mt-1 font-mono">patient_id: {patientId}</p>
-            )}
           </div>
-
-          {/* Título e datas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-1">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Título *</label>
+              <label className="block text-xs font-semibold mb-1">Título *</label>
               <input type="text" required value={title} onChange={e => setTitle(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Início *</label>
+              <label className="block text-xs font-semibold mb-1">Início *</label>
               <input type="date" required value={startDate} onChange={e => setStartDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Término *</label>
+              <label className="block text-xs font-semibold mb-1">Término *</label>
               <input type="date" required value={endDate} onChange={e => setEndDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm bg-white dark:bg-slate-800" />
             </div>
           </div>
-
-          {/* Refeições */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Refeições do Plano</span>
-              <button type="button" onClick={addMeal}
-                className="text-xs bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold px-3 py-1.5 rounded-lg transition">
-                + Adicionar
-              </button>
-            </div>
-            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-              {meals.map((meal, i) => (
-                <div key={meal.id} className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input type="time" required value={meal.time} onChange={e => changeMeal(i, 'time', e.target.value)}
-                      className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                    <input type="text" required value={meal.title} onChange={e => changeMeal(i, 'title', e.target.value)}
-                      placeholder="Nome da Refeição"
-                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                    {meals.length > 1 && (
-                      <button type="button" onClick={() => removeMeal(i)}
-                        className="text-xs text-rose-500 hover:text-rose-700 font-bold px-1 shrink-0" aria-label="Remover">✕</button>
-                    )}
-                  </div>
-                  <textarea required value={meal.description} onChange={e => changeMeal(i, 'description', e.target.value)}
-                    placeholder="Descrição dos alimentos" rows={2}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Observações / Notas do Plano */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Observações / Orientações do Plano</label>
-            <textarea
-              value={notes} onChange={e => setNotes(e.target.value)}
-              placeholder="Recomendações gerais, hidratação, suplementação…"
-              rows={2}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none bg-white"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
-              Cancelar
-            </button>
-            <button type="submit" disabled={submitting || !patientId}
-              className="bg-teal-700 hover:bg-teal-800 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-              {submitting ? (
-                <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> A gravar…</>
-              ) : 'Gravar Plano'}
-            </button>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm">Cancelar</button>
+            <button type="submit" disabled={submitting || !patientId} className="bg-teal-700 text-white font-semibold text-sm px-6 py-2.5 rounded-xl">Gravar Plano</button>
           </div>
         </form>
       </div>
@@ -995,160 +768,110 @@ function CreatePlanModal({ isOpen, onClose, patients, onSubmit, submitting }: {
 export default function NutriDashboard() {
   const router = useRouter();
 
-  // ── aba activa ─────────────────────────────────────────────────────────────
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const activeView = normalizeView(currentView);
 
-  // ── autenticação ───────────────────────────────────────────────────────────
-  const [user,      setUser]      = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [nutriName, setNutriName] = useState('Dra. Juliana');
-  const [loading,   setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // ── dados ──────────────────────────────────────────────────────────────────
-  const [patients,              setPatients]              = useState<PatientProfile[]>([]);
-  const [recentPlans,           setRecentPlans]           = useState<MealPlan[]>([]);
+  const [patients, setPatients] = useState<PatientProfile[]>([]);
+  const [recentPlans, setRecentPlans] = useState<MealPlan[]>([]);
   const [selectedPlanPatientId, setSelectedPlanPatientId] = useState('');
 
-  // ── fetchMealPlans helper ──────────────────────────────────────────────────
-  const fetchMealPlans = useCallback(async () => {
-    try {
-      console.log('📋 [fetchMealPlans] A buscar todos os planos alimentares (sem filtros restritivos)...');
-      
-      // Primeiro, tentar buscar com JOIN na tabela patients (correta)
-      const { data: plans, error: plansErr } = await supabase
-        .from('meal_plans')
-        .select(`
-          id, 
-          title, 
-          created_at, 
-          start_date, 
-          end_date, 
-          notes, 
-          meals_json, 
-          patient_id, 
-          nutritionist_id,
-          patients:patient_id(full_name)
-        `)
-        .order('created_at', { ascending: false });
+  // ── Dark Mode State ────────────────────────────────────────────────────────
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-      // CONSOLE LOG SOLICITADO para inspecionar a resposta
-      console.log('Planos buscados:', plans, plansErr);
-
-      if (plansErr) {
-        console.error('❌ [fetchMealPlans] Erro ao buscar meal_plans com JOIN patients:', plansErr);
-        
-        // Fallback: tentar com JOIN na tabela profiles (schema antigo)
-        console.log('🔄 [fetchMealPlans] Tentando fallback com tabela profiles...');
-        const { data: plansProfiles, error: profilesErr } = await supabase
-          .from('meal_plans')
-          .select(`
-            id, 
-            title, 
-            created_at, 
-            start_date, 
-            end_date, 
-            notes, 
-            meals_json, 
-            patient_id, 
-            nutritionist_id,
-            profiles:patient_id(full_name)
-          `)
-          .order('created_at', { ascending: false });
-
-        if (profilesErr) {
-          console.error('❌ [fetchMealPlans] Erro também com profiles, buscando sem JOIN:', profilesErr);
-          // Último fallback: buscar sem JOIN
-          const { data: basicPlans } = await supabase
-            .from('meal_plans')
-            .select('id, title, created_at, start_date, end_date, notes, meals_json, patient_id, nutritionist_id')
-            .order('created_at', { ascending: false });
-          
-          if (basicPlans) {
-            setRecentPlans(basicPlans as unknown as MealPlan[]);
-          }
-        } else if (plansProfiles) {
-          console.log(`✅ [fetchMealPlans] Encontrados ${plansProfiles.length} planos via profiles.`);
-          setRecentPlans(plansProfiles as unknown as MealPlan[]);
-        }
-      } else if (plans) {
-        console.log(`✅ [fetchMealPlans] Encontrados ${plans.length} planos via patients.`);
-        setRecentPlans(plans as unknown as MealPlan[]);
-      }
-    } catch (err) {
-      console.error('❌ [fetchMealPlans] Exceção:', err);
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+    
+    setIsDarkMode(shouldBeDark);
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
   }, []);
 
-  // ── fetchPatients helper ───────────────────────────────────────────────────
-  const fetchPatients = useCallback(async () => {
-    if (!user) return;
-    
+  const toggleTheme = () => {
+    document.documentElement.classList.toggle('dark');
+    const isNowDark = document.documentElement.classList.contains('dark');
+    setIsDarkMode(isNowDark);
+    localStorage.setItem('theme', isNowDark ? 'dark' : 'light');
+  };
+
+  const fetchMealPlans = useCallback(async () => {
     try {
-      let patientRows: PatientProfile[] = [];
-      const { data: pts, error: ptsErr } = await supabase
-        .from('patients')
-        .select('id, full_name, email, phone, objective, notes, nutritionist_id')
-        .eq('nutritionist_id', user.id)
+      const { data: plans } = await supabase
+        .from('meal_plans')
+        .select(`id, title, created_at, start_date, end_date, notes, meals_json, patient_id, nutritionist_id, patients:patient_id(full_name)`)
         .order('created_at', { ascending: false });
 
-      if (!ptsErr && pts && pts.length > 0) {
-        patientRows = pts.map((p, i) => ({
-          ...p,
-          adherence: DEMO_PATIENTS[i % DEMO_PATIENTS.length].adherence,
-          status:    DEMO_PATIENTS[i % DEMO_PATIENTS.length].status,
-          cycleDay:  DEMO_PATIENTS[i % DEMO_PATIENTS.length].cycleDay,
-          topReason: DEMO_PATIENTS[i % DEMO_PATIENTS.length].topReason,
-          planTitle: DEMO_PATIENTS[i % DEMO_PATIENTS.length].planTitle,
-          source:    'db' as const,
-        }));
-      } else {
-        // Fallback: tabela profiles (schema antigo)
-        const { data: pData } = await supabase
-          .from('profiles').select('id, full_name').eq('role', 'patient');
-        if (pData && pData.length > 0) {
-          patientRows = pData.map((p, i) => ({
+      if (plans) setRecentPlans(plans as unknown as MealPlan[]);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      try {
+        const { data: { user: u }, error: ue } = await supabase.auth.getUser();
+        if (ue || !u) { setAuthError('Sessão expirada.'); return; }
+        if (alive) setUser(u);
+
+        const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', u.id).single();
+        if (profile?.role === 'patient') { router.push('/dashboard/patient'); return; }
+        if (profile?.role !== 'nutritionist') { setAuthError('Acesso negado.'); return; }
+        if (alive) setNutriName(formatDoctorName(profile.full_name, u.email));
+
+        const { data: pts } = await supabase.from('patients').select('*').eq('nutritionist_id', u.id);
+        if (alive && pts) {
+          setPatients(pts.map((p, i) => ({
             ...p,
-            email:     DEMO_PATIENTS[i % DEMO_PATIENTS.length].email,
             adherence: DEMO_PATIENTS[i % DEMO_PATIENTS.length].adherence,
-            status:    DEMO_PATIENTS[i % DEMO_PATIENTS.length].status,
-            cycleDay:  DEMO_PATIENTS[i % DEMO_PATIENTS.length].cycleDay,
+            status: DEMO_PATIENTS[i % DEMO_PATIENTS.length].status,
+            cycleDay: DEMO_PATIENTS[i % DEMO_PATIENTS.length].cycleDay,
             topReason: DEMO_PATIENTS[i % DEMO_PATIENTS.length].topReason,
             planTitle: DEMO_PATIENTS[i % DEMO_PATIENTS.length].planTitle,
-            source:    'db' as const,
-          }));
-        } else {
-          patientRows = DEMO_PATIENTS;
+            source: 'db' as const,
+          })));
         }
+        await fetchMealPlans();
+      } catch (err) {
+        if (alive) setAuthError(String(err));
+      } finally {
+        if (alive) setLoading(false);
       }
-
-      setPatients(patientRows);
-    } catch (err) {
-      console.error('❌ [fetchPatients] Erro:', err);
     }
-  }, [user]);
+    load();
+    return () => { alive = false; };
+  }, [router, fetchMealPlans]);
 
-  // ── UI ─────────────────────────────────────────────────────────────────────
-  const [mobileOpen,          setMobileOpen]          = useState(false);
-  const [planModalOpen,       setPlanModalOpen]       = useState(false);
-  const [patientModalOpen,    setPatientModalOpen]    = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [patientModalOpen, setPatientModalOpen] = useState(false);
   const [editPatientModalOpen, setEditPatientModalOpen] = useState(false);
-  const [editingPatient,      setEditingPatient]      = useState<PatientProfile | null>(null);
-  const [submitting,          setSubmitting]          = useState(false);
-  const [toasts,              setToasts]              = useState<Toast[]>([]);
+  const [editingPatient, setEditingPatient] = useState<PatientProfile | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = useCallback((message: string, kind: Toast['kind'] = 'info') => {
-    setToasts(prev => [...prev, { id: `t-${Date.now()}-${Math.random()}`, message, kind }]);
+    setToasts(prev => [...prev, { id: `t-${Date.now()}`, message, kind }]);
   }, []);
   const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  // ── nav ────────────────────────────────────────────────────────────────────
   const navItems: { label: string; view: ViewType; icon: string }[] = [
     { label: 'Dashboard',          view: 'dashboard',  icon: '📊' },
     { label: 'Pacientes',          view: 'patients',   icon: '👥' },
     { label: 'Planos Alimentares', view: 'meal-plans', icon: '📋' },
+    { label: 'Consultas',          view: 'consultas',  icon: '📅' },
     { label: 'Relatórios',         view: 'reports',    icon: '📈' },
     { label: 'Configurações',      view: 'settings',   icon: '⚙️' },
   ];
@@ -1157,367 +880,73 @@ export default function NutriDashboard() {
     dashboard:    'Visão Geral do Consultório',
     patients:     'Gestão de Pacientes',
     'meal-plans': 'Planos Alimentares',
+    consultas:    'Gestão de Consultas e Agendamentos',
     reports:      'Relatórios Clínicos',
     settings:     'Configurações do Consultório',
   };
 
-  // ── carga de dados ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    let alive = true;
-    const timer = setTimeout(() => {
-      if (alive && loading) {
-        setLoading(false);
-        setAuthError('Tempo limite excedido. Verifique a ligação ao Supabase.');
-      }
-    }, 5000);
-
-    async function load() {
-      try {
-        const { data: { user: u }, error: ue } = await supabase.auth.getUser();
-        if (ue || !u) { setAuthError('Sessão expirada ou não autenticado.'); return; }
-        if (alive) setUser(u);
-
-        const { data: profile, error: pe } = await supabase
-          .from('profiles').select('role, full_name').eq('id', u.id).single();
-        if (pe || !profile) { setAuthError('Perfil não encontrado.'); return; }
-        if (profile.role === 'patient') { router.push('/dashboard/patient'); return; }
-        if (profile.role !== 'nutritionist') { setAuthError(`Acesso negado (role: ${profile.role}).`); return; }
-        if (alive) setNutriName(formatDoctorName(profile.full_name, u.email));
-
-        // Definir o user primeiro para que fetchPatients possa funcionar
-        if (alive) setUser(u);
-        
-        // Buscar pacientes usando o mesmo código anterior para evitar dependências circulares
-        let patientRows: PatientProfile[] = [];
-        const { data: pts, error: ptsErr } = await supabase
-          .from('patients')
-          .select('id, full_name, email, phone, objective, notes, nutritionist_id')
-          .eq('nutritionist_id', u.id)
-          .order('created_at', { ascending: false });
-
-        if (!ptsErr && pts && pts.length > 0) {
-          patientRows = pts.map((p, i) => ({
-            ...p,
-            adherence: DEMO_PATIENTS[i % DEMO_PATIENTS.length].adherence,
-            status:    DEMO_PATIENTS[i % DEMO_PATIENTS.length].status,
-            cycleDay:  DEMO_PATIENTS[i % DEMO_PATIENTS.length].cycleDay,
-            topReason: DEMO_PATIENTS[i % DEMO_PATIENTS.length].topReason,
-            planTitle: DEMO_PATIENTS[i % DEMO_PATIENTS.length].planTitle,
-            source:    'db' as const,
-          }));
-        } else {
-          // Fallback: tabela profiles (schema antigo)
-          const { data: pData } = await supabase
-            .from('profiles').select('id, full_name').eq('role', 'patient');
-          if (pData && pData.length > 0) {
-            patientRows = pData.map((p, i) => ({
-              ...p,
-              email:     DEMO_PATIENTS[i % DEMO_PATIENTS.length].email,
-              adherence: DEMO_PATIENTS[i % DEMO_PATIENTS.length].adherence,
-              status:    DEMO_PATIENTS[i % DEMO_PATIENTS.length].status,
-              cycleDay:  DEMO_PATIENTS[i % DEMO_PATIENTS.length].cycleDay,
-              topReason: DEMO_PATIENTS[i % DEMO_PATIENTS.length].topReason,
-              planTitle: DEMO_PATIENTS[i % DEMO_PATIENTS.length].planTitle,
-              source:    'db' as const,
-            }));
-          } else {
-            patientRows = DEMO_PATIENTS;
-          }
-        }
-
-        if (alive) setPatients(patientRows);
-
-        // Planos alimentares (sem filtros restritivos)
-        await fetchMealPlans();
-      } catch (err) {
-        if (alive) setAuthError(`Erro inesperado: ${err instanceof Error ? err.message : String(err)}`);
-      } finally {
-        if (alive) { setLoading(false); clearTimeout(timer); }
-      }
-    }
-
-    load();
-    return () => { alive = false; clearTimeout(timer); };
-  }, [router]);
-
-  // ── gravar paciente ────────────────────────────────────────────────────────
   const handleCreatePatient = async (data: PatientFormData) => {
-    if (!user) { addToast('Utilizador não autenticado.', 'error'); return; }
-
+    if (!user) return;
     setSubmitting(true);
     try {
-      // Tenta inserir na tabela 'patients' (após migration)
-      const payload = {
-        nutritionist_id: user.id,
-        full_name:       data.full_name.trim(),
-        email:           data.email.trim()     || null,
-        phone:           data.phone.trim()     || null,
-        objective:       data.objective.trim() || null,
-        notes:           data.notes.trim()     || null,
-      };
-
-      console.log('📤 [createPatient] payload:', payload);
-
-      const { data: inserted, error } = await supabase
-        .from('patients')
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) {
-        let msg: string;
-        switch (error.code) {
-          case '42P01': msg = 'Tabela "patients" não existe. Execute a migration supabase_migration_patients.sql no Supabase SQL Editor.'; break;
-          case '42501': msg = 'Permissão negada pela política RLS. Certifique-se de que a migration foi executada.'; break;
-          case '23505': msg = 'Já existe uma paciente com este e-mail.'; break;
-          default:      msg = `Erro ao cadastrar paciente (${error.code ?? 'N/A'}): ${error.message}`;
-        }
-        console.error('❌ [createPatient]', error);
-        addToast(msg, 'error');
-        return;
-      }
-
-      console.log('✅ [createPatient] sucesso:', inserted);
-      addToast(`✅ Paciente "${data.full_name}" cadastrada com sucesso!`, 'success');
+      const { data: inserted, error } = await supabase.from('patients').insert({
+        nutritionist_id: user.id, full_name: data.full_name, email: data.email || null,
+        phone: data.phone || null, objective: data.objective || null, notes: data.notes || null,
+      }).select().single();
+      if (error) { addToast(error.message, 'error'); return; }
+      addToast('Paciente cadastrada com sucesso!', 'success');
       setPatientModalOpen(false);
-
-      // Actualizar lista localmente sem refetch
-      setPatients(prev => [{
-        ...inserted,
-        adherence: 80, status: 'green' as const, cycleDay: 1,
-        topReason: '—', planTitle: '—', source: 'db' as const,
-      }, ...prev]);
-
-    } catch (err) {
-      addToast(`Excepção: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // ── editar paciente ────────────────────────────────────────────────────────
-  const handleEditPatient = (patient: PatientProfile) => {
-    setEditingPatient(patient);
-    setEditPatientModalOpen(true);
+      setPatients(prev => [{ ...inserted, adherence: 80, status: 'green', cycleDay: 1, source: 'db' }, ...prev]);
+    } finally { setSubmitting(false); }
   };
 
   const handleUpdatePatient = async (data: PatientFormData) => {
-    if (!user || !editingPatient) {
-      addToast('Paciente ou usuário não encontrado.', 'error');
-      return;
-    }
-
+    if (!user || !editingPatient) return;
     setSubmitting(true);
     try {
-      const payload = {
-        full_name: data.full_name.trim(),
-        email: data.email.trim() || null,
-        phone: data.phone.trim() || null,
-        objective: data.objective.trim() || null,
-        notes: data.notes.trim() || null,
-      };
-
-      console.log('📤 [updatePatient] payload:', payload, 'for patient ID:', editingPatient.id);
-
-      const { data: updated, error } = await supabase
-        .from('patients')
-        .update(payload)
-        .eq('id', editingPatient.id)
-        .select()
-        .single();
-
-      if (error) {
-        let msg: string;
-        switch (error.code) {
-          case '42P01': msg = 'Tabela "patients" não existe. Execute a migration supabase_migration_patients.sql no Supabase SQL Editor.'; break;
-          case '42501': msg = 'Permissão negada pela política RLS. Certifique-se de que a migration foi executada.'; break;
-          case '23505': msg = 'Já existe uma paciente com este e-mail.'; break;
-          default: msg = `Erro ao atualizar paciente (${error.code ?? 'N/A'}): ${error.message}`;
-        }
-        console.error('❌ [updatePatient]', error);
-        addToast(msg, 'error');
-        return;
-      }
-
-      console.log('✅ [updatePatient] sucesso:', updated);
-      addToast(`✅ Paciente "${data.full_name}" atualizada com sucesso!`, 'success');
+      const { error } = await supabase.from('patients').update({
+        full_name: data.full_name, email: data.email || null,
+        phone: data.phone || null, objective: data.objective || null, notes: data.notes || null,
+      }).eq('id', editingPatient.id);
+      if (error) { addToast(error.message, 'error'); return; }
+      addToast('Paciente atualizada com sucesso!', 'success');
       setEditPatientModalOpen(false);
       setEditingPatient(null);
-
-      // Recarregar a lista de pacientes
-      await fetchPatients();
-
-    } catch (err) {
-      addToast(`Excepção: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
-  // ── deletar plano ──────────────────────────────────────────────────────────
   const handleDeletePlan = async (planId: string, planTitle: string) => {
-    const confirmed = window.confirm(`Tem certeza que deseja excluir o plano "${planTitle}"?\n\nEsta ação não pode ser desfeita.`);
-    
-    if (!confirmed) return;
-
-    try {
-      console.log('🗑️ [deletePlan] Excluindo plano:', planId);
-
-      const { error } = await supabase
-        .from('meal_plans')
-        .delete()
-        .eq('id', planId);
-
-      if (error) {
-        console.error('❌ [deletePlan] Erro ao excluir plano:', error);
-        addToast(`Erro ao excluir plano: ${error.message}`, 'error');
-        return;
-      }
-
-      console.log('✅ [deletePlan] Plano excluído com sucesso:', planId);
-      addToast('🗑️ Plano alimentar excluído com sucesso!', 'success');
-
-      // Atualizar estado local removendo o plano da lista
-      setRecentPlans(prev => prev.filter(plan => plan.id !== planId));
-
-    } catch (err) {
-      console.error('❌ [deletePlan] Exceção:', err);
-      addToast(`Exceção ao excluir plano: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    }
+    if (!window.confirm(`Excluir o plano "${planTitle}"?`)) return;
+    const { error } = await supabase.from('meal_plans').delete().eq('id', planId);
+    if (error) { addToast(error.message, 'error'); return; }
+    addToast('Plano excluído com sucesso!', 'success');
+    setRecentPlans(prev => prev.filter(p => p.id !== planId));
   };
 
-  // ── gravar plano ───────────────────────────────────────────────────────────
   const handleCreatePlan = async (data: PlanFormData) => {
-    if (!user) { addToast('Utilizador não autenticado.', 'error'); return; }
-
+    if (!user) return;
     setSubmitting(true);
     try {
-      // 1. Construir payload estrito apenas com colunas válidas e opcionais da tabela meal_plans:
-      // patient_id, nutritionist_id, title, start_date, end_date, notes, meals_json
-      // Evitando estritamente enviar campos vazios/nulos em colunas antigas como cycle_id ou meal_name.
-      const payload: Record<string, any> = {
-        patient_id:      data.patientId,
-        nutritionist_id: user.id,
-        title:           data.title || 'Plano de 30 Dias',
-        start_date:      data.startDate,
-        end_date:        data.endDate,
-        meals_json:      data.meals,
-      };
-
-      if (data.notes && data.notes.trim().length > 0) {
-        payload.notes = data.notes.trim();
-      }
-
-      // 3. console.log detalhado do payload antes do envio para depuração
-      console.log('📋 [createPlan] Payload estrito a enviar para meal_plans:', JSON.stringify(payload, null, 2));
-
-      const { data: inserted, error } = await supabase
-        .from('meal_plans')
-        .insert(payload)
-        .select();
-
-      if (error) {
-        let msg: string;
-        switch (error.code) {
-          case '23503': 
-            // Erro de chave estrangeira - tentar diagnóstico
-            console.error('🔍 [createPlan] Diagnosticando FK error - patient_id:', data.patientId);
-            
-            // Verificar se o patient existe na tabela patients
-            const { data: patientCheck } = await supabase
-              .from('patients')
-              .select('id, full_name')
-              .eq('id', data.patientId)
-              .single();
-            
-            if (patientCheck) {
-              msg = `Erro de chave estrangeira: patient_id ${data.patientId} existe na tabela patients mas meal_plans pode estar referenciando profiles. Verifique o schema do banco.`;
-            } else {
-              msg = `Chave estrangeira inválida: a paciente (ID ${data.patientId}) não existe.`;
-            }
-            break;
-          case '23502': msg = `Coluna obrigatória em falta: ${error.message}.`; break;
-          case '23505': msg = 'Já existe um plano com este título para esta paciente neste período.'; break;
-          case '42501': msg = 'Permissão negada pela RLS. Confirme que está autenticado como nutricionista.'; break;
-          case '42703': msg = `Coluna inexistente: ${error.message}`; break;
-          default:      msg = `Erro ao gravar plano (${error.code ?? 'N/A'}): ${error.message}`;
-        }
-        console.error('❌ [createPlan] Erro Supabase:', error);
-        console.error('❌ [createPlan] Payload que falhou:', JSON.stringify(payload, null, 2));
-        addToast(msg, 'error');
-        return;
-      }
-
-      console.log('✅ [createPlan] Sucesso:', inserted);
-      console.log('🔄 [createPlan] Iniciando recarregamento da lista de planos...');
-      addToast('✨ Plano alimentar gravado com sucesso!', 'success');
+      const { error } = await supabase.from('meal_plans').insert({
+        patient_id: data.patientId, nutritionist_id: user.id,
+        title: data.title, start_date: data.startDate, end_date: data.endDate,
+        notes: data.notes || null, meals_json: data.meals,
+      });
+      if (error) { addToast(error.message, 'error'); return; }
+      addToast('Plano gravado com sucesso!', 'success');
       setPlanModalOpen(false);
-
-      // Chamar função de busca/listagem imediatamente para atualizar o estado local da tela
-      // Recarregar tanto na montagem do componente quanto quando um novo plano for salvo
       await fetchMealPlans();
-      console.log('✅ [createPlan] Recarregamento da lista concluído');
-
-    } catch (err) {
-      addToast(`Excepção: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
-  // ── actualizar perfil ───────────────────────────────────────────────────────
   const handleUpdateProfile = async (newFullName: string, newEmail: string) => {
-    if (!user) { addToast('Utilizador não autenticado.', 'error'); return; }
-
+    if (!user) return;
     setSubmitting(true);
     try {
-      const trimmedName = newFullName.trim();
-      const trimmedEmail = newEmail.trim();
-
-      // 1. Update profiles table
-      const { error: profileErr } = await supabase
-        .from('profiles')
-        .update({ full_name: trimmedName, email: trimmedEmail })
-        .eq('id', user.id);
-
-      if (profileErr) {
-        console.warn('⚠️ [updateProfile] Falha ao atualizar email em profiles, tentando apenas full_name:', profileErr);
-        const { error: nameErr } = await supabase
-          .from('profiles')
-          .update({ full_name: trimmedName })
-          .eq('id', user.id);
-        if (nameErr) {
-          addToast(`Erro ao atualizar perfil na base de dados: ${nameErr.message}`, 'error');
-          return;
-        }
-      }
-
-      // 2. Update auth user email if changed
-      if (trimmedEmail && trimmedEmail !== user.email) {
-        const { error: authErr } = await supabase.auth.updateUser({ email: trimmedEmail });
-        if (authErr) {
-          addToast(`Perfil atualizado, mas erro ao atualizar e-mail de autenticação: ${authErr.message}`, 'error');
-        } else {
-          addToast('✨ Perfil e e-mail atualizados com sucesso!', 'success');
-        }
-      } else {
-        addToast('✨ Perfil profissional atualizado com sucesso!', 'success');
-      }
-
-      // 3. Update local state immediately so header/greeting updates ("Olá, Dra...")
-      const formatted = formatDoctorName(trimmedName, trimmedEmail || user.email);
-      setNutriName(formatted);
-
-      const { data: updatedUser } = await supabase.auth.getUser();
-      if (updatedUser?.user) {
-        setUser(updatedUser.user);
-      }
-
-    } catch (err) {
-      addToast(`Exceção ao atualizar perfil: ${err instanceof Error ? err.message : String(err)}`, 'error');
-    } finally {
-      setSubmitting(false);
-    }
+      await supabase.from('profiles').update({ full_name: newFullName, email: newEmail }).eq('id', user.id);
+      setNutriName(formatDoctorName(newFullName, newEmail));
+      addToast('Perfil atualizado com sucesso!', 'success');
+    } finally { setSubmitting(false); }
   };
 
   const handleLogout = async () => {
@@ -1525,137 +954,156 @@ export default function NutriDashboard() {
     router.push('/login');
   };
 
-  // ── carregamento / erro ────────────────────────────────────────────────────
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F7F9FA] flex items-center justify-center text-slate-500 font-medium">
-        Carregando painel profissional…
-      </div>
-    );
+    return <div className="min-h-screen bg-[#F7F9FA] dark:bg-slate-950 flex items-center justify-center text-slate-500">Carregando painel…</div>;
   }
 
   if (authError) {
-    return (
-      <div className="min-h-screen bg-[#F7F9FA] flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-xl max-w-md w-full p-8 text-center space-y-4 border border-rose-100">
-          <div className="text-4xl">⚠️</div>
-          <h2 className="text-xl font-bold text-slate-900">Erro de Acesso</h2>
-          <p className="text-xs text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200">{authError}</p>
-          <button onClick={handleLogout}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-3 px-4 rounded-xl transition">
-            Sair e voltar ao login
-          </button>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen bg-[#F7F9FA] dark:bg-slate-950 flex items-center justify-center p-4 text-center">Erro: {authError}</div>;
   }
 
-  // ── render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg); } }` }} />
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
 
-      <div className="min-h-screen bg-[#F7F9FA] text-slate-800 flex flex-col md:flex-row font-sans">
+      <div className="min-h-screen bg-[#F7F9FA] dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col md:flex-row font-sans">
 
-        {/* Mobile header */}
-        <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🥗</span>
-            <span className="font-extrabold text-sm text-emerald-950 dark:text-emerald-100">NutriAdesão</span>
+        {/* Mobile Header */}
+        <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+          <div onClick={() => setCurrentView('dashboard')} className="flex items-center gap-2 cursor-pointer">
+            <span className="text-2xl">🌿</span>
+            <span className="font-extrabold text-sm text-slate-900 dark:text-slate-100">NutriAdesão</span>
           </div>
-          <button onClick={() => setMobileOpen(v => !v)}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" aria-label="Menu">
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
             {mobileOpen ? '✕' : '☰'}
           </button>
         </div>
 
-        {/* Mobile drawer */}
+        {/* Mobile Drawer */}
         {mobileOpen && (
           <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex md:hidden">
-            <div className="w-72 bg-white h-full shadow-2xl flex flex-col justify-between p-6">
+            <div className="w-72 bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col justify-between p-6">
               <div>
-                <div className="flex items-center justify-between pb-6 border-b border-slate-100">
+                <div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">🥗</span>
-                    <span className="font-extrabold text-sm text-emerald-950">NutriAdesão</span>
+                    <span className="text-xl">🌿</span>
+                    <div>
+                      <span className="font-bold text-sm block">NutriAdesão</span>
+                      <span className="text-[10px] text-slate-500">Sistema de gestão nutricional</span>
+                    </div>
                   </div>
-                  <button onClick={() => setMobileOpen(false)} className="text-slate-400 font-bold text-lg p-1">✕</button>
+                  <button onClick={() => setMobileOpen(false)} className="text-slate-400 font-bold text-lg">✕</button>
                 </div>
-                <nav className="py-6 space-y-1.5">
+                <nav className="py-6 space-y-1">
                   {navItems.map(item => {
                     const active = normalizeView(item.view) === activeView;
                     return (
-                      <button key={item.view}
-                        onClick={() => { setCurrentView(item.view); setMobileOpen(false); }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${active ? 'bg-emerald-50 text-emerald-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
-                        <span>{item.icon}</span>{item.label}
+                      <button key={item.view} onClick={() => { setCurrentView(item.view); setMobileOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${active ? 'bg-slate-100 dark:bg-slate-800 font-semibold' : 'text-slate-600 dark:text-slate-400'}`}>
+                        <span>{item.icon}</span><span>{item.label}</span>
                       </button>
                     );
                   })}
                 </nav>
               </div>
-              <div className="pt-4 border-t border-slate-100">
-                <p className="text-xs font-bold text-slate-800 truncate mb-0.5">{nutriName}</p>
-                <p className="text-[11px] text-slate-500 truncate mb-3">{user?.email}</p>
-                <button onClick={handleLogout}
-                  className="w-full bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 border border-slate-200 text-xs font-semibold py-2.5 rounded-xl transition flex items-center justify-center gap-2">
-                  🚪 Sair
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <button onClick={toggleTheme} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-slate-600 dark:text-slate-400">
+                  <span>{isDarkMode ? '☀️' : '🌙'}</span><span>{isDarkMode ? 'Modo Claro' : 'Modo Escuro'}</span>
                 </button>
+                <button onClick={handleLogout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-rose-600">Sair da conta</button>
               </div>
             </div>
             <div className="flex-1" onClick={() => setMobileOpen(false)} />
           </div>
         )}
 
-        {/* Desktop sidebar */}
-        <aside className="hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex-col justify-between shrink-0 min-h-screen sticky top-0 z-30 shadow-sm">
+        {/* Desktop Sidebar (Refactored to match exact user request) */}
+        <aside className="hidden md:flex w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col justify-between shrink-0 min-h-screen sticky top-0 z-30 shadow-xs">
           <div>
-            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
-              <span className="text-3xl">🥗</span>
-              <div>
-                <span className="font-extrabold text-base text-emerald-950 dark:text-emerald-100 tracking-tight block">NutriAdesão</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md">Painel Clínico</span>
+            {/* Top Brand / Logo Header */}
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+              <div 
+                onClick={() => setCurrentView('dashboard')} 
+                className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400">
+                    <span>🌿</span>
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-sm text-slate-900 dark:text-slate-100 block group-hover:text-emerald-600 transition">NutriAdesão</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate max-w-[140px]">Sistema de gestão nutricional</span>
+                  </div>
+                </div>
+                <span className="text-slate-400 text-xs">▼</span>
               </div>
             </div>
-            <nav className="p-4 space-y-1.5">
+
+            {/* Navigation Links */}
+            <nav className="p-3 space-y-1">
               {navItems.map(item => {
                 const active = normalizeView(item.view) === activeView;
+                const isDashboard = item.view === 'dashboard' || item.view === 'inicio';
                 return (
-                  <button key={item.view} onClick={() => setCurrentView(item.view)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${active ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-100' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'}`}>
-                    <span>{item.icon}</span>{item.label}
+                  <button 
+                    key={item.view} 
+                    onClick={() => setCurrentView(item.view)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+                      active 
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold' 
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </div>
+                    {isDashboard && (
+                      <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">Página inicial</span>
+                    )}
                   </button>
                 );
               })}
             </nav>
           </div>
-          <div className="p-4 border-t border-slate-100 dark:border-slate-700">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{nutriName}</p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mb-3">{user?.email}</p>
-            <div className="flex items-center gap-2">
-              <button onClick={handleLogout}
-                className="flex-1 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-700 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 text-xs font-semibold py-2 rounded-xl transition flex items-center justify-center gap-2">
-                🚪 Sair da conta
-              </button>
-            </div>
+
+          {/* Footer Actions (Theme Toggle & Logout) */}
+          <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-1">
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200 transition"
+            >
+              <div className="flex items-center gap-3">
+                <span>{isDarkMode ? '☀️' : '🌙'}</span>
+                <span>Aparência</span>
+              </div>
+              <span className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md font-medium">
+                {isDarkMode ? 'Modo Escuro' : 'Modo Claro'}
+              </span>
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+            >
+              <span>🚪</span>
+              <span>Sair da conta</span>
+            </button>
           </div>
         </aside>
 
-        {/* Conteúdo principal */}
+        {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="bg-white border-b border-slate-200 px-6 py-4 hidden md:flex items-center justify-between sticky top-0 z-20 shadow-sm">
-            <h2 className="text-base font-bold text-slate-800">{VIEW_TITLES[activeView]}</h2>
+          <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 hidden md:flex items-center justify-between sticky top-0 z-20 shadow-xs">
+            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{VIEW_TITLES[activeView]}</h2>
             <div className="flex items-center gap-3">
               {activeView === 'patients' && (
-                <button onClick={() => setPatientModalOpen(true)}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition shadow-xs flex items-center gap-2">
+                <button onClick={() => setPatientModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition shadow-xs">
                   ＋ Nova Paciente
                 </button>
               )}
               {(activeView === 'dashboard' || activeView === 'meal-plans') && (
-                <button onClick={() => setPlanModalOpen(true)}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition shadow-xs flex items-center gap-2">
+                <button onClick={() => setPlanModalOpen(true)} className="bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition shadow-xs">
                   + Novo Plano Alimentar
                 </button>
               )}
@@ -1663,64 +1111,31 @@ export default function NutriDashboard() {
           </header>
 
           <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
-            {/* ── SWITCH DE ABAS ── */}
             {activeView === 'dashboard' && (
-              <DashboardView
-                nutriName={nutriName} patients={patients} recentPlans={recentPlans}
-                onNavigate={setCurrentView} onCreatePlan={() => setPlanModalOpen(true)}
-                onDeletePlan={handleDeletePlan}
-              />
+              <DashboardView nutriName={nutriName} patients={patients} recentPlans={recentPlans} onNavigate={setCurrentView} onCreatePlan={() => setPlanModalOpen(true)} onDeletePlan={handleDeletePlan} />
             )}
             {activeView === 'patients' && (
-              <PatientsView patients={patients} onNewPatient={() => setPatientModalOpen(true)} onEditPatient={handleEditPatient} />
+              <PatientsView patients={patients} onNewPatient={() => setPatientModalOpen(true)} onEditPatient={p => { setEditingPatient(p); setEditPatientModalOpen(true); }} />
             )}
             {activeView === 'meal-plans' && (
-              <MealPlansView
-                plans={recentPlans}
-                patients={patients}
-                selectedPatientId={selectedPlanPatientId}
-                onSelectPatient={setSelectedPlanPatientId}
-                onCreatePlan={() => setPlanModalOpen(true)}
-                onDeletePlan={handleDeletePlan}
-              />
+              <MealPlansView plans={recentPlans} patients={patients} selectedPatientId={selectedPlanPatientId} onSelectPatient={setSelectedPlanPatientId} onCreatePlan={() => setPlanModalOpen(true)} onDeletePlan={handleDeletePlan} />
             )}
-            {activeView === 'reports'  && <ReportsView />}
-            {activeView === 'settings' && (
-              <SettingsView
-                user={user}
-                nutriName={nutriName}
-                onUpdateProfile={handleUpdateProfile}
-                submitting={submitting}
-              />
+            {activeView === 'consultas' && (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800">
+                  <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">Gestão de Consultas 📅</h1>
+                </div>
+              </div>
             )}
+            {activeView === 'reports' && <ReportsView />}
+            {activeView === 'settings' && <SettingsView user={user} nutriName={nutriName} onUpdateProfile={handleUpdateProfile} submitting={submitting} />}
           </main>
         </div>
       </div>
 
-      {/* Modais */}
-      <NewPatientModal
-        isOpen={patientModalOpen}
-        onClose={() => setPatientModalOpen(false)}
-        onSubmit={handleCreatePatient}
-        submitting={submitting}
-      />
-      <EditPatientModal
-        isOpen={editPatientModalOpen}
-        onClose={() => {
-          setEditPatientModalOpen(false);
-          setEditingPatient(null);
-        }}
-        patient={editingPatient}
-        onSubmit={handleUpdatePatient}
-        submitting={submitting}
-      />
-      <CreatePlanModal
-        isOpen={planModalOpen}
-        onClose={() => setPlanModalOpen(false)}
-        patients={patients}
-        onSubmit={handleCreatePlan}
-        submitting={submitting}
-      />
+      <NewPatientModal isOpen={patientModalOpen} onClose={() => setPatientModalOpen(false)} onSubmit={handleCreatePatient} submitting={submitting} />
+      <EditPatientModal isOpen={editPatientModalOpen} onClose={() => { setEditPatientModalOpen(false); setEditingPatient(null); }} patient={editingPatient} onSubmit={handleUpdatePatient} submitting={submitting} />
+      <CreatePlanModal isOpen={planModalOpen} onClose={() => setPlanModalOpen(false)} patients={patients} onSubmit={handleCreatePlan} submitting={submitting} />
     </>
   );
 }
